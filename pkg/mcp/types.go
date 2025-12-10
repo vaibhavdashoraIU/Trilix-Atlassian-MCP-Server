@@ -5,6 +5,7 @@ type Tool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	InputSchema map[string]interface{} `json:"inputSchema"`
+	InputType   string                 `json:"inputType,omitempty"`
 }
 
 // ToolCall represents a tool invocation request

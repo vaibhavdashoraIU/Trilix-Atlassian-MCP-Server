@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/joho/godotenv"
 	"github.com/providentiaww/twistygo"
@@ -16,8 +15,13 @@ const ServiceVersion = "v1.0.0"
 var rconn *twistygo.AmqpConn_t
 
 func init() {
-	// Load environment variables
-	godotenv.Load()
+	// Load environment variables FIRST from project root
+	if err := godotenv.Load("../../.env"); err != nil {
+		// Try current directory as fallback
+		if err := godotenv.Load(); err != nil {
+			fmt.Printf("Warning: .env file not found: %v\n", err)
+		}
+	}
 
 	// Initialize TwistyGo with service name
 	twistygo.LogStartService("ConfluenceService", ServiceVersion)

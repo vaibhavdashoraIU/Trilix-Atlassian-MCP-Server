@@ -1,0 +1,22 @@
+queues:
+  - name: ConfluenceRequests
+    category: atlassian
+    type: rpc
+    exchange:
+      name: trilix.atlassian
+    queue:
+      name: confluence.requests
+      autoack: false
+    routingkey: confluence.rpc
+    protocol: json
+
+  - name: JiraRequests
+    category: atlassian
+    type: rpc
+    exchange:
+      name: trilix.atlassian
+    queue:
+      name: jira.requests
+      autoack: false
+    routingkey: jira.rpc
+    protocol: json

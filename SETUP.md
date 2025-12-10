@@ -35,6 +35,9 @@ Copy the example environment file and update it:
 
 ```bash
 copy .env.example .env
+
+# for mac
+cp sample.env .env
 ```
 
 Edit `.env` and set:

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
 )
@@ -27,6 +26,7 @@ func (h *ManagementHandler) ListTools() []mcp.Tool {
 		{
 			Name:        "list_workspaces",
 			Description: "List all configured Atlassian workspaces. You can connect to multiple workspaces simultaneously and query different organizations in the same chat session.",
+			InputType:   "object",
 			InputSchema: map[string]interface{}{
 				"type":       "object",
 				"properties": map[string]interface{}{},
@@ -35,6 +35,7 @@ func (h *ManagementHandler) ListTools() []mcp.Tool {
 		{
 			Name:        "workspace_status",
 			Description: "Check connectivity status of a workspace",
+			InputType:   "object",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{

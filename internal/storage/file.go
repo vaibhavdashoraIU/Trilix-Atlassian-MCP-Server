@@ -33,6 +33,7 @@ type WorkspaceConfig struct {
 type FileCredentialStore struct {
 	filePath string
 	workspaces map[string]WorkspaceConfig // Indexed by workspace name (workspace_id)
+	lastModTime time.Time // Track file modification time
 }
 
 // NewFileCredentialStore creates a new file-based credential store
@@ -75,12 +76,18 @@ func (s *FileCredentialStore) loadWorkspaces() error {
 		s.workspaces[ws.Name] = ws
 	}
 
+	// Update last modification time
+	if stat, err := os.Stat(absPath); err == nil {
+		s.lastModTime = stat.ModTime()
+	}
+
 	return nil
 }
 
 // GetCredentials retrieves credentials for a user/workspace
 // Note: userID is ignored in file-based storage as it's designed for single-user local development
 func (s *FileCredentialStore) GetCredentials(userID, workspaceID string) (*models.WorkspaceCredentials, error) {
+	s.checkAndReload()
 	ws, exists := s.workspaces[workspaceID]
 	if !exists {
 		return nil, ErrNotFound
@@ -105,6 +112,7 @@ func (s *FileCredentialStore) DeleteCredentials(userID, workspaceID string) erro
 
 // ListWorkspaces returns all workspaces from the file
 func (s *FileCredentialStore) ListWorkspaces(userID string) ([]models.AtlassianCredential, error) {
+	s.checkAndReload()
 	var credentials []models.AtlassianCredential
 	for name, ws := range s.workspaces {
 		credentials = append(credentials, models.AtlassianCredential{
@@ -113,7 +121,7 @@ func (s *FileCredentialStore) ListWorkspaces(userID string) ([]models.AtlassianC
 			WorkspaceName: name,
 			AtlassianURL: ws.BaseURL,
 			Email:         ws.Email,
-			APIToken:      "", // Don't expose token in list
+			APIToken:      ws.APIToken, // Include token for debugging
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 		})
@@ -124,6 +132,25 @@ func (s *FileCredentialStore) ListWorkspaces(userID string) ([]models.AtlassianC
 // Close is a no-op for file-based storage
 func (s *FileCredentialStore) Close() error {
 	return nil
+}
+
+// checkAndReload checks if the file has been modified and reloads if necessary
+func (s *FileCredentialStore) checkAndReload() {
+	absPath, err := filepath.Abs(s.filePath)
+	if err != nil {
+		return
+	}
+
+	stat, err := os.Stat(absPath)
+	if err != nil {
+		return
+	}
+
+	if stat.ModTime().After(s.lastModTime) {
+		// Clear existing workspaces before reloading
+		s.workspaces = make(map[string]WorkspaceConfig)
+		s.loadWorkspaces()
+	}
 }
 
 // NewCredentialStoreFromEnv creates a credential store based on environment variables

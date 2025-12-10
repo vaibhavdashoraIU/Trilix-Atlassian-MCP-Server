@@ -9,8 +9,6 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
 )
 
-var requestIDCounter int64
-
 // JiraHandler handles Jira-related MCP tool calls
 type JiraHandler struct {
 	callService func(models.JiraRequest) (*models.JiraResponse, error)
@@ -29,6 +27,7 @@ func (h *JiraHandler) ListTools() []mcp.Tool {
 		{
 			Name:        "jira_list_issues",
 			Description: "Search for Jira issues using JQL. Supports querying multiple workspaces - specify workspace_id to search a specific organization.",
+			InputType:   "object",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -47,7 +46,7 @@ func (h *JiraHandler) ListTools() []mcp.Tool {
 					},
 					"fields": map[string]interface{}{
 						"type": "array",
-						"items": map[string]string{
+						"items": map[string]interface{}{
 							"type": "string",
 						},
 						"description": "Fields to return",
@@ -72,7 +71,7 @@ func (h *JiraHandler) ListTools() []mcp.Tool {
 					},
 					"expand": map[string]interface{}{
 						"type": "array",
-						"items": map[string]string{
+						"items": map[string]interface{}{
 							"type": "string",
 						},
 						"description": "Fields to expand",
