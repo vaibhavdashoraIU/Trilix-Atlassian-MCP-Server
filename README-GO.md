@@ -132,3 +132,62 @@ go test -cover ./...
 - API tokens are encrypted using AES-256-GCM
 - All services require both `config.yaml` and `settings.yaml` files
 
+## Schema for chatgpt UI tool add
+
+openapi: 3.1.0
+info:
+  title: Trilix Atlassian MCP Server
+  version: "1.0.0"
+servers:
+  - url: https://candra-unsabred-totally.ngrok-free.dev
+paths:
+  /message:
+    post:
+      operationId: mcpCall
+      summary: MCP JSON-RPC endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  const: "2.0"
+                id:
+                  type: integer
+                method:
+                  type: string
+                  enum: ["initialize", "tools/list", "tools/call"]
+                params:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: "Tool name (use tools/list first to see available tools)"
+                    arguments:
+                      type: object
+                      additionalProperties: true
+              required: [jsonrpc, method]
+      responses:
+        "200":
+          description: MCP JSON-RPC response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  id:
+                    type: integer
+                  result:
+                    type: object
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                      message:
+                        type: string
