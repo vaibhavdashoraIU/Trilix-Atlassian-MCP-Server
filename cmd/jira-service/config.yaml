@@ -9,9 +9,9 @@ common:
 rabbitmq:
   primary:
     default: true
-    host: '@env:RABBITMQ_HOST'
-    vhost: '@env:RABBITMQ_VHOST'
+    host: localhost
+    vhost: trilix
     port: 5672
-    username: '@env:RABBITMQ_USER'
-    password: '@env:RABBITMQ_PASSWORD'
+    username: trilix
+    password: secret
 

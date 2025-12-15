@@ -1,5 +1,10 @@
 package models
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 // ConfluenceRequest represents a request to the Confluence service
 type ConfluenceRequest struct {
 	Action      string         `json:"action"`       // get_page, search, create_page, update_page, list_spaces, copy_page
@@ -47,7 +52,32 @@ type VersionInfo struct {
 type SpaceRef struct {
 	Key  string `json:"key"`
 	Name string `json:"name,omitempty"`
-	ID   string `json:"id,omitempty"`
+	ID   string `json:"-"`
+}
+
+// UnmarshalJSON custom unmarshaler for SpaceRef to handle ID as both string and number
+func (s *SpaceRef) UnmarshalJSON(data []byte) error {
+	type Alias SpaceRef
+	aux := &struct {
+		ID interface{} `json:"id,omitempty"`
+		*Alias
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if aux.ID != nil {
+		switch v := aux.ID.(type) {
+		case string:
+			s.ID = v
+		case float64:
+			s.ID = fmt.Sprintf("%.0f", v)
+		case int:
+			s.ID = fmt.Sprintf("%d", v)
+		}
+	}
+	return nil
 }
 
 // PageLinks contains navigation links
