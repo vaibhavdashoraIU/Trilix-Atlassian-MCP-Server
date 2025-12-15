@@ -97,14 +97,23 @@ func createConfluenceCaller() func(models.ConfluenceRequest) (*models.Confluence
 		sq := rconn.AmqpConnectQueue("ConfluenceRequests")
 		sq.SetEncoding(twistygo.EncodingJson)
 
-		// Append request data
+		// Marshal single request as object (not array) for the RPC payload
+		reqBytes, err := json.Marshal(req)
+		if err != nil {
+			return nil, err
+		}
+		sq.Message.ResetDataList()
 		sq.Message.AppendData(req)
+		sq.Message.Encoded = reqBytes
 
 		// Publish and wait for response (RPC)
 		responseBytes, err := sq.Publish()
 		if err != nil {
 			return nil, err
 		}
+
+		// Debug log raw response to aid troubleshooting unexpected payload shapes
+		fmt.Printf("Confluence RPC raw response: %s\n", string(responseBytes))
 
 		// Unmarshal response
 		var response models.ConfluenceResponse
@@ -122,8 +131,14 @@ func createJiraCaller() func(models.JiraRequest) (*models.JiraResponse, error) {
 		sq := rconn.AmqpConnectQueue("JiraRequests")
 		sq.SetEncoding(twistygo.EncodingJson)
 
-		// Append request data
+		// Marshal single request as object (not array) for the RPC payload
+		reqBytes, err := json.Marshal(req)
+		if err != nil {
+			return nil, err
+		}
+		sq.Message.ResetDataList()
 		sq.Message.AppendData(req)
+		sq.Message.Encoded = reqBytes
 
 		// Publish and wait for response (RPC)
 		responseBytes, err := sq.Publish()
