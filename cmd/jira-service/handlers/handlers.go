@@ -62,6 +62,8 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		response = s.handleAddComment(client, req)
 	case "transition_issue":
 		response = s.handleTransitionIssue(client, req)
+	case "list_projects":
+		response = s.handleListProjects(client, req)
 	default:
 		response = models.ErrorResponse(models.ErrCodeInvalidRequest,
 			fmt.Sprintf("unknown action: %s", req.Action), req.RequestID)
@@ -210,5 +212,14 @@ func (s *Service) handleTransitionIssue(client *api.Client, req models.JiraReque
 	}
 
 	return models.SuccessResponse(map[string]string{"status": "transitioned"}, req.RequestID)
+}
+
+func (s *Service) handleListProjects(client *api.Client, req models.JiraRequest) map[string]interface{} {
+	projects, err := client.ListProjects()
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(projects, req.RequestID)
 }
 

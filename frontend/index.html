@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trilix Server • Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Righteous&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --midnight: #1A1A2E;
+            --space-teal: #00D4AA;
+            --atomic-orange: #FF6B35;
+            --cream: #FFF8E7;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--midnight);
+            color: var(--cream);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 600px;
+            padding: 40px;
+            border: 2px solid var(--space-teal);
+            border-radius: 20px;
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 40px rgba(0, 212, 170, 0.1);
+        }
+
+        h1 {
+            font-family: 'Righteous', cursive;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--cream) 0%, var(--space-teal) 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            margin-bottom: 40px;
+            opacity: 0.7;
+        }
+
+        .links {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        a {
+            display: block;
+            text-decoration: none;
+            color: var(--midnight);
+            background: var(--space-teal);
+            padding: 20px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-transform: uppercase;
+        }
+
+        a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 170, 0.4);
+        }
+
+        a.secondary {
+            background: transparent;
+            border: 2px solid var(--atomic-orange);
+            color: var(--atomic-orange);
+        }
+
+        a.secondary:hover {
+            background: rgba(255, 107, 53, 0.1);
+            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.2);
+        }
+
+        .status {
+            margin-top: 30px;
+            font-size: 0.8rem;
+            color: var(--space-teal);
+        }
+
+        .status::before {
+            content: '●';
+            margin-right: 8px;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .auth-btn {
+            background: var(--cream);
+            color: var(--midnight);
+            border: none;
+            padding: 10px 20px;
+            font-family: 'Space Mono', monospace;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .token-btn {
+            background: var(--atomic-orange);
+            color: #fff;
+            border: none;
+            padding: 15px;
+            font-family: 'Space Mono', monospace;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            transition: transform 0.2s;
+        }
+
+        .token-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(255, 107, 53, 0.4);
+        }
+
+        .feedback {
+            height: 20px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        #user-button-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Trilix Command Center</h1>
+        <p>MCP Server is running on Port 3000</p>
+
+        <!-- Auth Section -->
+        <div id="auth-section">
+            <div id="user-button-container"></div>
+            <div id="logged-out-view">
+                <button onclick="Clerk.openSignIn()" class="auth-btn">Sign In to Dashboard</button>
+            </div>
+            <div id="logged-in-view" style="display: none;">
+                <button onclick="copyToken()" class="token-btn">
+                    🔑 Copy ChatGPT Token
+                </button>
+                <div id="token-feedback" class="feedback"></div>
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="/docs/test-client.html">
+                🛠 Open Test Client
+            </a>
+            <a href="/workspaces.html" class="secondary">
+                🚀 Workspaces Manager
+            </a>
+        </div>
+
+        <div class="status">System Online • Ready</div>
+    </div>
+
+    <!-- Clerk Script -->
+    <script async crossorigin="anonymous"
+        data-clerk-publishable-key="pk_test_Zmx5aW5nLWtvYWxhLTEwLmNsZXJrLmFjY291bnRzLmRldiQ"
+        src="https://flying-koala-10.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"></script>
+
+    <script>
+        window.addEventListener('load', async () => {
+            if (!window.Clerk) {
+                console.error('Clerk failed to load');
+                return;
+            }
+
+            await window.Clerk.load();
+
+            const userButtonDiv = document.getElementById('user-button-container');
+            const loggedInView = document.getElementById('logged-in-view');
+            const loggedOutView = document.getElementById('logged-out-view');
+
+            if (window.Clerk.user) {
+                // User is signed in
+                window.Clerk.mountUserButton(userButtonDiv);
+                loggedInView.style.display = 'block';
+                loggedOutView.style.display = 'none';
+            } else {
+                // User is signed out
+                loggedInView.style.display = 'none';
+                loggedOutView.style.display = 'block';
+            }
+        });
+
+        async function copyToken() {
+            const feedback = document.getElementById('token-feedback');
+            try {
+                if (!window.Clerk.session) return;
+
+                // Request a long-lived token using the 'chatgpt' template
+                const token = await window.Clerk.session.getToken({ template: 'chatgpt' });
+                await navigator.clipboard.writeText(token);
+
+                feedback.textContent = '✅ Long-Lived Token Copied!';
+                feedback.style.color = '#00D4AA';
+                setTimeout(() => feedback.textContent = '', 3000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+                feedback.textContent = '❌ Failed. Did you create the "chatgpt" template?';
+                feedback.style.color = '#FF6B35';
+            }
+        }
+    </script>
+</body>
+
+</html>

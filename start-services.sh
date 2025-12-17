@@ -1,40 +1,43 @@
-#!/bin/zsh
-# Start all Trilix Atlassian MCP Server services (macOS/zsh)
+#!/bin/bash
 
-set -e
+# Configuration
+PORT=3000
 
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
-GO_BIN="$(command -v go)"
+echo "🚀 Starting Trilix Services..."
 
-if [[ -z "$GO_BIN" ]]; then
-  echo "Error: Go not found in PATH. Please install Go." >&2
-  exit 1
-fi
+# Kill any existing process on the target port
+echo "🧹 Cleaning up port $PORT..."
+lsof -ti:$PORT | xargs kill -9 2>/dev/null
 
-if [[ ! -f "$PROJECT_ROOT/.env" ]]; then
-  echo "Warning: .env file not found. Services may fail to start." >&2
-fi
+# Clean up Python server if running
+pkill -f "python3 -m http.server" 2>/dev/null
 
-# Start Confluence Service
+# Start Confluence Service (Microservice)
 echo "Starting Confluence Service..."
-(cd "$PROJECT_ROOT/cmd/confluence-service" && nohup "$GO_BIN" run main.go > "$PROJECT_ROOT/confluence-service.log" 2>&1 &)
-sleep 1
+(cd cmd/confluence-service && go run main.go > ../../confluence-service.log 2>&1 &)
 
-# Start Jira Service
+# Start Jira Service (Microservice)
 echo "Starting Jira Service..."
-(cd "$PROJECT_ROOT/cmd/jira-service" && nohup "$GO_BIN" run main.go > "$PROJECT_ROOT/jira-service.log" 2>&1 &)
-sleep 1
+(cd cmd/jira-service && go run main.go > ../../jira-service.log 2>&1 &)
 
-# Start MCP Server
-echo "Starting MCP Server..."
-(cd "$PROJECT_ROOT/cmd/mcp-server" && nohup "$GO_BIN" run main.go > "$PROJECT_ROOT/mcp-server.log" 2>&1 &)
 sleep 2
 
-echo ""
-echo "All services started!"
-echo "Logs:"
-echo "  $PROJECT_ROOT/confluence-service.log"
-echo "  $PROJECT_ROOT/jira-service.log"
-echo "  $PROJECT_ROOT/mcp-server.log"
-echo ""
-echo "To stop services, use: pkill -f 'go run main.go' or kill the relevant PIDs."
+# Build the server
+echo "🔨 Building Go Server..."
+cd cmd/mcp-server
+go build -o mcp-server
+
+if [ $? -eq 0 ]; then
+    echo "✅ Build successful!"
+    echo "🌐 Starting server on http://localhost:$PORT"
+    echo "   - Frontend: http://localhost:$PORT/trilix-workspaces.html"
+    echo "   - Test Client: http://localhost:$PORT/docs/test-client.html"
+    echo "   - API: http://localhost:$PORT/api/workspaces"
+    echo "   - SSE: http://localhost:$PORT/sse"
+    echo ""
+    echo "Logs:"
+    ./mcp-server
+else
+    echo "❌ Build failed!"
+    exit 1
+fi

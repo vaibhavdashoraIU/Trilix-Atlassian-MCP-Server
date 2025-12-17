@@ -25,6 +25,20 @@ func NewJiraHandler(callService func(models.JiraRequest) (*models.JiraResponse, 
 func (h *JiraHandler) ListTools() []mcp.Tool {
 	return []mcp.Tool{
 		{
+			Name:        "jira_list_projects",
+			Description: "List all accessible Jira projects in a workspace",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+				},
+				"required": []string{"workspace_id"},
+			},
+		},
+		{
 			Name:        "jira_list_issues",
 			Description: "Search for Jira issues using JQL. Supports querying multiple workspaces - specify workspace_id to search a specific organization.",
 			InputType:   "object",
@@ -238,6 +252,8 @@ func (h *JiraHandler) HandleTool(call mcp.ToolCall, userID string) (mcp.ToolResu
 
 func getJiraActionFromToolName(toolName string) string {
 	switch toolName {
+	case "jira_list_projects":
+		return "list_projects"
 	case "jira_list_issues":
 		return "list_issues"
 	case "jira_get_issue":

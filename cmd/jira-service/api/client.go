@@ -294,3 +294,33 @@ func (c *Client) TransitionIssue(issueKey, transitionID string) error {
 	return nil
 }
 
+// ListProjects returns a list of visible projects
+func (c *Client) ListProjects() ([]models.ProjectRef, error) {
+	url := fmt.Sprintf("%s/rest/api/3/project", c.creds.Site)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to list projects: %s", string(body))
+	}
+
+	var projects []models.ProjectRef
+	if err := json.NewDecoder(resp.Body).Decode(&projects); err != nil {
+		return nil, err
+	}
+
+	return projects, nil
+}
+

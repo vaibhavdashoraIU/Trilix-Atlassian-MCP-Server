@@ -1,0 +1,136 @@
+openapi: 3.1.0
+info:
+  title: Trilix Atlassian Assistant
+  description: Use Atlassian tools (Confluence, Jira) via Trilix MCP Server.
+  version: 1.0.0
+servers:
+  - url: https://candra-unsabred-totally.ngrok-free.dev
+    description: Production Server
+  - url: http://localhost:3000
+    description: Local Development Server
+
+
+
+paths:
+  /api/tools/confluence_list_spaces:
+    post:
+      operationId: listConfluenceSpaces
+      summary: List all spaces in a Confluence workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id:
+                  type: string
+                  description: The workspace ID to query
+                limit:
+                  type: integer
+                  default: 50
+              required:
+                - workspace_id
+      responses:
+        '200':
+          description: List of spaces
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  /api/tools/confluence_search:
+    post:
+      operationId: searchConfluence
+      summary: Search for content in Confluence using CQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id:
+                  type: string
+                  description: The workspace ID to query
+                query:
+                  type: string
+                  description: CQL search query
+                limit:
+                  type: integer
+                  default: 10
+              required:
+                - workspace_id
+                - query
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  /api/tools/jira_list_projects:
+    post:
+      operationId: listJiraProjects
+      summary: List all projects in a Jira workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id:
+                  type: string
+                  description: The workspace ID to query
+              required:
+                - workspace_id
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+
+  /api/workspaces:
+    get:
+      operationId: listWorkspaces
+      summary: List available connected workspaces
+      description: Returns a list of workspaces the user has connected, including their IDs. Call this first to get workspace_id.
+      responses:
+        '200':
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    workspaceId:
+                      type: string
+                    workspaceName:
+                      type: string
+                    siteUrl:
+                      type: string
+
+components:
+  schemas:
+    GenericResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Response status
+      additionalProperties: true
+      description: Dynamic object response from Atlassian API
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
