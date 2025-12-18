@@ -63,7 +63,11 @@ func (h *WorkspaceHandler) HandleCreateWorkspace(w http.ResponseWriter, r *http.
 
 	// Validate required fields
 	if req.SiteURL == "" || req.Email == "" || req.APIToken == "" {
-		http.Error(w, "Missing required fields: siteUrl, email, apiToken", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "Missing required fields: siteUrl, email, apiToken",
+		})
 		return
 	}
 
@@ -74,7 +78,11 @@ func (h *WorkspaceHandler) HandleCreateWorkspace(w http.ResponseWriter, r *http.
 
 	// Validate Atlassian token
 	if err := h.validator.ValidateToken(req.SiteURL, req.Email, req.APIToken); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid Atlassian credentials: %v", err), http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": fmt.Sprintf("Atlassian Connection Failed: %v. Please check URL/Token.", err),
+		})
 		return
 	}
 
@@ -95,7 +103,11 @@ func (h *WorkspaceHandler) HandleCreateWorkspace(w http.ResponseWriter, r *http.
 
 	// Save credentials
 	if err := h.credStore.SaveCredentials(cred); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to save credentials: %v", err), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": fmt.Sprintf("Failed to save credentials: %v", err),
+		})
 		return
 	}
 
@@ -175,6 +187,124 @@ func (h *WorkspaceHandler) HandleDeleteWorkspace(w http.ResponseWriter, r *http.
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleUpdateWorkspace handles PUT /api/workspaces/:id
+func (h *WorkspaceHandler) HandleUpdateWorkspace(w http.ResponseWriter, r *http.Request) {
+	// Extract user from context
+	userCtx, ok := auth.ExtractUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract workspace ID from URL path
+	// Expected format: /api/workspaces/{id}
+	workspaceID := r.URL.Path[len("/api/workspaces/"):]
+	if workspaceID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "Missing workspace ID",
+		})
+		return
+	}
+
+	// Parse request body
+	var req CreateWorkspaceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": fmt.Sprintf("Invalid request body: %v", err),
+		})
+		return
+	}
+
+	// Get existing credentials to preserve token if not updated
+	existingCreds, err := h.credStore.GetCredentials(userCtx.UserID, workspaceID)
+	if err != nil {
+		if err == storage.ErrNotFound {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": "Workspace not found",
+			})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": fmt.Sprintf("Failed to retrieve workspace: %v", err),
+		})
+		return
+	}
+
+	// If API Token is empty, use the existing one
+	if req.APIToken == "" {
+		req.APIToken = existingCreds.Token
+	}
+
+	// Validate required fields (after potential token fill)
+	if req.SiteURL == "" || req.Email == "" || req.APIToken == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "Missing required fields: siteUrl, email",
+		})
+		return
+	}
+
+	// Default workspace name if not provided
+	if req.WorkspaceName == "" {
+		req.WorkspaceName = req.SiteURL
+	}
+
+	// Validate Atlassian token
+	if err := h.validator.ValidateToken(req.SiteURL, req.Email, req.APIToken); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": fmt.Sprintf("Atlassian Connection Failed: %v. Please check URL/Token.", err),
+		})
+		return
+	}
+
+	// Create updated credential object
+	cred := &models.AtlassianCredential{
+		UserID:        userCtx.UserID,
+		WorkspaceID:   workspaceID, // Keep original ID
+		WorkspaceName: req.WorkspaceName,
+		AtlassianURL:  req.SiteURL,
+		Email:         req.Email,
+		APIToken:      req.APIToken,
+		CreatedAt:     time.Now(), // Preserving original 'CreatedAt' would require fetching full model, but 'GetCredentials' only returns minimal. Updating both for now or just UpdatedAt.
+		UpdatedAt:     time.Now(),
+	}
+
+	// Save credentials (overwrite)
+	if err := h.credStore.SaveCredentials(cred); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": fmt.Sprintf("Failed to update credentials: %v", err),
+		})
+		return
+	}
+
+	// Return response (without token)
+	response := WorkspaceResponse{
+		WorkspaceID:   workspaceID,
+		WorkspaceName: req.WorkspaceName,
+		SiteURL:       req.SiteURL,
+		Email:         req.Email,
+		CreatedAt:     cred.CreatedAt,
+		UpdatedAt:     cred.UpdatedAt,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 // HandleWorkspaceStatus handles GET /api/workspaces/:id/status

@@ -9,7 +9,8 @@
     <!-- Clerk -->
     <script async crossorigin="anonymous"
         data-clerk-publishable-key="pk_test_Zmx5aW5nLWtvYWxhLTEwLmNsZXJrLmFjY291bnRzLmRldiQ"
-        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
+        src="https://flying-koala-10.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1037,26 +1038,13 @@
                 // Load Clerk
                 await window.Clerk.load();
 
-                // Check if user is already signed in
-                if (window.Clerk.user) {
-                    handleUserSignedIn(window.Clerk.user);
-                }
-
-                // Listen for auth changes
-                window.addEventListener('clerk:loaded', () => {
-                    if (window.Clerk.user) {
-                        handleUserSignedIn(window.Clerk.user);
+                // Listen for auth changes using the official addListener method
+                window.Clerk.addListener(({ user }) => {
+                    if (user) {
+                        handleUserSignedIn(user);
+                    } else {
+                        handleUserSignedOut();
                     }
-                });
-
-                window.addEventListener('clerk:signed-in', () => {
-                    if (window.Clerk.user) {
-                        handleUserSignedIn(window.Clerk.user);
-                    }
-                });
-
-                window.addEventListener('clerk:signed-out', () => {
-                    handleUserSignedOut();
                 });
             } catch (error) {
                 console.error('Failed to initialize Clerk:', error);
@@ -1117,6 +1105,10 @@
                 },
             });
 
+            if (response.status === 204) {
+                return null;
+            }
+
             if (!response.ok) {
                 const error = await response.json().catch(() => ({ message: 'Request failed' }));
                 throw new Error(error.message || 'Request failed');
@@ -1163,7 +1155,7 @@
                     });
 
                     // Update local state
-                    const index = workspaces.findIndex(w => w.id === editingWorkspaceId);
+                    const index = workspaces.findIndex(w => w.workspaceId === editingWorkspaceId);
                     if (index !== -1) {
                         workspaces[index] = updatedWorkspace;
                     }
@@ -1200,7 +1192,7 @@
                 });
 
                 // Remove from local state
-                workspaces = workspaces.filter(w => w.id !== workspaceId);
+                workspaces = workspaces.filter(w => w.workspaceId !== workspaceId);
 
                 renderWorkspaces();
                 closeDeleteModal();

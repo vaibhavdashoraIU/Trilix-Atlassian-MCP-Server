@@ -137,7 +137,7 @@ func main() {
 		})
 
 		mux.Handle("/api/workspaces", workspaceRouteHandler)
-		mux.Handle("/api/workspaces/", authMiddleware.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/api/workspaces/", authMiddleware.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/api/workspaces/" {
 				workspaceRouteHandler.ServeHTTP(w, r)
 				return
@@ -146,6 +146,8 @@ func main() {
 				workspaceHandler.HandleWorkspaceStatus(w, r)
 			} else if r.Method == http.MethodDelete {
 				workspaceHandler.HandleDeleteWorkspace(w, r)
+			} else if r.Method == http.MethodPut {
+				workspaceHandler.HandleUpdateWorkspace(w, r)
 			} else {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			}

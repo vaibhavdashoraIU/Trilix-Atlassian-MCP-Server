@@ -366,26 +366,32 @@
             try {
                 await window.Clerk.load();
 
-                if (window.Clerk.user) {
-                    // Mount the User Button (Avatar + Sign Out)
-                    authStatus.innerHTML = ''; // Clear "Checking Auth..."
-                    window.Clerk.mountUserButton(authStatus);
+                // Official method to listen for auth transitions
+                window.Clerk.addListener(async ({ user }) => {
+                    if (user) {
+                        // Mount the User Button (Avatar + Sign Out)
+                        authStatus.innerHTML = ''; // Clear "Checking Auth..."
+                        window.Clerk.mountUserButton(authStatus);
 
-                    // Get the long-lived token if available
-                    try {
-                        currentToken = await window.Clerk.session.getToken({ template: 'chatgpt' });
-                    } catch (e) {
-                        console.log("Custom template not found, using default");
-                        currentToken = await window.Clerk.session.getToken();
+                        // Get the long-lived token if available
+                        try {
+                            currentToken = await window.Clerk.session.getToken({ template: 'chatgpt' });
+                        } catch (e) {
+                            console.log("Custom template not found, using default");
+                            currentToken = await window.Clerk.session.getToken();
+                        }
+
+                        // Load default form
+                        showForm('workspaces');
+                    } else {
+                        currentToken = '';
+                        authStatus.innerHTML = `
+                        <button style="background:var(--primary); color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%;" onclick="Clerk.openSignIn()">Sign In</button>
+                    `;
+                        document.getElementById('dynamic-form').innerHTML = '';
+                        document.getElementById('response-area').innerText = 'Please sign in to run requests.';
                     }
-
-                    // Load default form
-                    showForm('workspaces');
-                } else {
-                    authStatus.innerHTML = `
-                    <button style="background:var(--primary); color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%;" onclick="Clerk.openSignIn()">Sign In</button>
-                `;
-                }
+                });
             } catch (err) {
                 console.error(err);
                 authStatus.textContent = '❌ Auth Error: ' + err.message;

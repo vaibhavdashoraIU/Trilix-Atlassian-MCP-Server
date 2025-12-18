@@ -204,16 +204,21 @@
             const loggedInView = document.getElementById('logged-in-view');
             const loggedOutView = document.getElementById('logged-out-view');
 
-            if (window.Clerk.user) {
-                // User is signed in
-                window.Clerk.mountUserButton(userButtonDiv);
-                loggedInView.style.display = 'block';
-                loggedOutView.style.display = 'none';
-            } else {
-                // User is signed out
-                loggedInView.style.display = 'none';
-                loggedOutView.style.display = 'block';
-            }
+            // Official method to listen for auth transitions
+            window.Clerk.addListener(({ user }) => {
+                if (user) {
+                    // User is signed in
+                    window.Clerk.mountUserButton(userButtonDiv);
+                    loggedInView.style.display = 'block';
+                    loggedOutView.style.display = 'none';
+                } else {
+                    // User is signed out
+                    loggedInView.style.display = 'none';
+                    loggedOutView.style.display = 'block';
+                    userButtonDiv.innerHTML = '';
+                    document.getElementById('token-feedback').textContent = '';
+                }
+            });
         });
 
         async function copyToken() {
