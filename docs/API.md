@@ -3,8 +3,8 @@
 ## Overview
 
 The MCP server provides two main APIs:
-1. **Workspace Management API** (Port 3002) - Manage Atlassian workspace credentials
-2. **MCP SSE API** (Port 3001) - Execute MCP tools with Server-Sent Events streaming
+1. **Workspace Management API** (Port 3000) - Manage Atlassian workspace credentials
+2. **MCP SSE API** (Port 3000) - Execute MCP tools with Server-Sent Events streaming
 
 ## Authentication
 
@@ -32,7 +32,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-## Workspace Management API (Port 3002)
+## Workspace Management API (Port 3000)
 
 ### Health Check
 
@@ -165,7 +165,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-## MCP SSE API (Port 3001)
+## MCP SSE API (Port 3000)
 
 ### SSE Connection
 
@@ -333,7 +333,7 @@ Execute an MCP tool.
       const token = await getToken();
       if (!token) return;
 
-      const response = await fetch('http://localhost:3002/api/workspaces', {
+      const response = await fetch('http://localhost:3000/api/workspaces', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -355,7 +355,7 @@ Execute an MCP tool.
       const token = await getToken();
       if (!token) return;
 
-      const response = await fetch('http://localhost:3002/api/workspaces', {
+      const response = await fetch('http://localhost:3000/api/workspaces', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

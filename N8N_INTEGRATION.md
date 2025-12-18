@@ -6,7 +6,7 @@ The MCP server implements the Model Context Protocol (MCP) over Server-Sent Even
 
 ### MCP Endpoint for n8n
 ```
-http://localhost:3001
+http://localhost:3000
 ```
 
 **Important:** Use this base URL in n8n's MCP node configuration.
@@ -62,7 +62,7 @@ Handles MCP JSON-RPC requests (initialize, tools/list, tools/call).
 ### Step 2: Configure MCP Connection
 1. In the MCP configuration:
    - **Transport Type**: `SSE` (Server-Sent Events)
-   - **Base URL**: `http://localhost:3001`
+   - **Base URL**: `http://localhost:3000`
    - **Authentication**: None (or configure if needed)
 
 ### Step 3: Available Tools
@@ -91,12 +91,12 @@ The MCP agent will automatically call the appropriate tools based on your prompt
 
 ### Test SSE Connection
 ```bash
-curl http://localhost:3001/sse
+curl http://localhost:3000/sse
 ```
 
 ### Test Initialize
 ```bash
-curl -X POST http://localhost:3001/message \
+curl -X POST http://localhost:3000/message \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -108,7 +108,7 @@ curl -X POST http://localhost:3001/message \
 
 ### Test List Tools
 ```bash
-curl -X POST http://localhost:3001/message \
+curl -X POST http://localhost:3000/message \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -120,7 +120,7 @@ curl -X POST http://localhost:3001/message \
 
 ### Test Tool Call
 ```bash
-curl -X POST http://localhost:3001/message \
+curl -X POST http://localhost:3000/message \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -165,7 +165,7 @@ RABBITMQ_PASSWORD=secret
 ## Troubleshooting
 
 ### Port Already in Use
-If port 3001 is in use, the server will fail to start. Check the logs:
+If port 3000 is in use, the server will fail to start. Check the logs:
 ```bash
 tail -f mcp-server.log
 ```

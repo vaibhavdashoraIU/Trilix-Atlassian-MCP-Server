@@ -2,7 +2,7 @@
 
 ## ✅ Server is Running
 
-Your MCP server is running on: **http://localhost:3001**
+Your MCP server is running on: **http://localhost:3000**
 
 ## 🚀 Connect to n8n
 
@@ -38,7 +38,7 @@ If MCP node is not available, use HTTP Request:
 2. **Configure**:
    ```
    Method: POST
-   URL: http://localhost:3001/message
+   URL: http://localhost:3000/message
    Content-Type: application/json
    ```
 
@@ -90,27 +90,27 @@ If MCP node is not available, use HTTP Request:
 
 ### Test 1: Check if server is running
 ```bash
-curl http://localhost:3001/sse
+curl http://localhost:3000/sse
 ```
 Expected: `event: endpoint` message
 
 ### Test 2: Initialize MCP
 ```bash
-curl -X POST http://localhost:3001/message \
+curl -X POST http://localhost:3000/message \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
 ```
 
 ### Test 3: List all tools
 ```bash
-curl -X POST http://localhost:3001/message \
+curl -X POST http://localhost:3000/message \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 ```
 
 ### Test 4: Call a tool
 ```bash
-curl -X POST http://localhost:3001/message \
+curl -X POST http://localhost:3000/message \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc":"2.0",
@@ -154,7 +154,7 @@ ps aux | grep "mcp-server"
 
 **Check 2:** Test the endpoint
 ```bash
-curl http://localhost:3001/sse
+curl http://localhost:3000/sse
 ```
 
 **Check 3:** Check logs
@@ -167,16 +167,16 @@ tail -f mcp-server.log
 ./start-services.sh
 ```
 
-### Port 3001 already in use
+### Port 3000 already in use
 
 **Check what's using it:**
 ```bash
-lsof -i :3001
+lsof -i :3000
 ```
 
 **Kill the process:**
 ```bash
-lsof -ti:3001 | xargs kill -9
+lsof -ti:3000 | xargs kill -9
 ```
 
 ### Services not starting

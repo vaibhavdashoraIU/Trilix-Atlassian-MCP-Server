@@ -170,7 +170,7 @@ func main() {
 		mux.HandleFunc("/api/tools/", restToolHandler.HandleToolRequest)
 	}
 
-	// 3. SSE Server (Replaces port 3001)
+	// 3. SSE Server (Replaces port 3000)
 	sseServer := mcp.NewSSEServer(server, handler)
 	
 	// Create SSE handler with Auth if configured
