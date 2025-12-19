@@ -13,11 +13,12 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const ServiceVersion = "v1.0.0"
 
-var rconn *twistygo.AmqpConn_t
+var rconn *twistygo.AmqpConnection_t
 
 func init() {
 	// Load environment variables FIRST from project root
@@ -223,6 +224,9 @@ func createConfluenceCaller() func(models.ConfluenceRequest) (*models.Confluence
 	return func(req models.ConfluenceRequest) (*models.ConfluenceResponse, error) {
 		// Connect to ConfluenceRequests queue
 		sq := rconn.AmqpConnectQueue("ConfluenceRequests")
+		if sq != nil && sq.ResponseQueue == nil {
+			sq.ResponseQueue = &amqp.Queue{}
+		}
 		sq.SetEncoding(twistygo.EncodingJson)
 
 		// Marshal single request as object (not array) for the RPC payload
@@ -257,6 +261,9 @@ func createJiraCaller() func(models.JiraRequest) (*models.JiraResponse, error) {
 	return func(req models.JiraRequest) (*models.JiraResponse, error) {
 		// Connect to JiraRequests queue
 		sq := rconn.AmqpConnectQueue("JiraRequests")
+		if sq != nil && sq.ResponseQueue == nil {
+			sq.ResponseQueue = &amqp.Queue{}
+		}
 		sq.SetEncoding(twistygo.EncodingJson)
 
 		// Marshal single request as object (not array) for the RPC payload

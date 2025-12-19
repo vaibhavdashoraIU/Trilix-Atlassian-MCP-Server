@@ -106,11 +106,36 @@ type AncestorRef struct {
 
 // ConfluenceSpace represents a Confluence space
 type ConfluenceSpace struct {
-	ID          int    `json:"id"`
+	ID          string `json:"-"`
 	Key         string `json:"key"`
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
+}
+
+// UnmarshalJSON custom unmarshaler for ConfluenceSpace to handle ID as both string and number
+func (s *ConfluenceSpace) UnmarshalJSON(data []byte) error {
+	type Alias ConfluenceSpace
+	aux := &struct {
+		ID interface{} `json:"id,omitempty"`
+		*Alias
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if aux.ID != nil {
+		switch v := aux.ID.(type) {
+		case string:
+			s.ID = v
+		case float64:
+			s.ID = fmt.Sprintf("%.0f", v)
+		case int:
+			s.ID = fmt.Sprintf("%d", v)
+		}
+	}
+	return nil
 }
 
 // SearchResults represents Confluence search results

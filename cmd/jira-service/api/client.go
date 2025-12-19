@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 )
@@ -27,8 +28,10 @@ type Client struct {
 // NewClient creates an authenticated Jira client
 func NewClient(creds WorkspaceCredentials) *Client {
 	return &Client{
-		creds:      creds,
-		httpClient: &http.Client{},
+		creds: creds,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 	}
 }
 

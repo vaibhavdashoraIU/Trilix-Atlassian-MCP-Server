@@ -177,7 +177,7 @@ import (
 
 const ServiceVersion = "v1.0.0"
 
-var rconn *twistygo.AmqpConn_t
+var rconn *twistygo.AmqpConnection_t
 
 func init() {
     twistygo.LogStartService("ConfluenceService", ServiceVersion)

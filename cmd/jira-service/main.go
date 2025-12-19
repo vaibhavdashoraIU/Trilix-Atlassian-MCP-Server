@@ -12,7 +12,7 @@ import (
 
 const ServiceVersion = "v1.0.0"
 
-var rconn *twistygo.AmqpConn_t
+var rconn *twistygo.AmqpConnection_t
 
 func init() {
 	// Load environment variables FIRST from project root
@@ -49,6 +49,11 @@ func main() {
 
 	// Get service handle
 	svc := rconn.AmqpConnectService("JiraService")
+
+	// Defensive check: ensure ResponseQueue is initialized if the library missed it
+	if svc != nil && svc.ResponseQueue == nil {
+		svc.ResponseQueue = &amqp.Queue{}
+	}
 
 	// Start listening with handler function
 	svc.StartService(func(d amqp.Delivery) []byte {
