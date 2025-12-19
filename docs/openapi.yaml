@@ -6,11 +6,6 @@ info:
 servers:
   - url: https://candra-unsabred-totally.ngrok-free.dev
     description: Production Server
-  - url: http://localhost:3000
-    description: Local Development Server
-
-
-
 paths:
   /api/tools/confluence_list_spaces:
     post:
@@ -32,13 +27,12 @@ paths:
               required:
                 - workspace_id
       responses:
-        '200':
+        "200":
           description: List of spaces
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericResponse'
-
+                $ref: "#/components/schemas/GenericResponse"
   /api/tools/confluence_search:
     post:
       operationId: searchConfluence
@@ -63,13 +57,12 @@ paths:
                 - workspace_id
                 - query
       responses:
-        '200':
+        "200":
           description: Search results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericResponse'
-
+                $ref: "#/components/schemas/GenericResponse"
   /api/tools/jira_list_projects:
     post:
       operationId: listJiraProjects
@@ -87,20 +80,19 @@ paths:
               required:
                 - workspace_id
       responses:
-        '200':
+        "200":
           description: List of projects
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericResponse'
-
+                $ref: "#/components/schemas/GenericResponse"
   /api/workspaces:
     get:
       operationId: listWorkspaces
       summary: List available connected workspaces
       description: Returns a list of workspaces the user has connected, including their IDs. Call this first to get workspace_id.
       responses:
-        '200':
+        "200":
           description: List of workspaces
           content:
             application/json:
@@ -115,7 +107,6 @@ paths:
                       type: string
                     siteUrl:
                       type: string
-
 components:
   schemas:
     GenericResponse:
@@ -131,6 +122,5 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
 security:
   - bearerAuth: []
