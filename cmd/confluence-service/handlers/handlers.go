@@ -9,17 +9,20 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"time"
 )
 
 // Service handles Confluence service requests
 type Service struct {
-	credStore storage.CredentialStoreInterface
+	credStore  storage.CredentialStoreInterface
+	apiTimeout time.Duration
 }
 
 // NewService creates a new Confluence service
-func NewService(credStore storage.CredentialStoreInterface) *Service {
+func NewService(credStore storage.CredentialStoreInterface, timeout time.Duration) *Service {
 	return &Service{
-		credStore: credStore,
+		credStore:  credStore,
+		apiTimeout: timeout,
 	}
 }
 
@@ -54,7 +57,7 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		Site:  site,
 		Email: creds.Email,
 		Token: creds.Token,
-	})
+	}, s.apiTimeout)
 
 	// Route to appropriate handler
 	var response map[string]interface{}
@@ -214,13 +217,13 @@ func (s *Service) handleCopyPage(req models.ConfluenceRequest) map[string]interf
 		Site:  srcCreds.Site,
 		Email: srcCreds.Email,
 		Token: srcCreds.Token,
-	})
+	}, s.apiTimeout)
 
 	dstClient := api.NewClient(api.WorkspaceCredentials{
 		Site:  dstCreds.Site,
 		Email: dstCreds.Email,
 		Token: dstCreds.Token,
-	})
+	}, s.apiTimeout)
 
 	// Read from source
 	page, err := srcClient.GetPage(srcPageID)

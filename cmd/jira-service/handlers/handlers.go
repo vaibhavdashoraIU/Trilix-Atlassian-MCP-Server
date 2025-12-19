@@ -8,17 +8,20 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"time"
 )
 
 // Service handles Jira service requests
 type Service struct {
-	credStore storage.CredentialStoreInterface
+	credStore  storage.CredentialStoreInterface
+	apiTimeout time.Duration
 }
 
 // NewService creates a new Jira service
-func NewService(credStore storage.CredentialStoreInterface) *Service {
+func NewService(credStore storage.CredentialStoreInterface, timeout time.Duration) *Service {
 	return &Service{
-		credStore: credStore,
+		credStore:  credStore,
+		apiTimeout: timeout,
 	}
 }
 
@@ -45,7 +48,7 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		Site:  creds.Site,
 		Email: creds.Email,
 		Token: creds.Token,
-	})
+	}, s.apiTimeout)
 
 	// Route to appropriate handler
 	var response map[string]interface{}

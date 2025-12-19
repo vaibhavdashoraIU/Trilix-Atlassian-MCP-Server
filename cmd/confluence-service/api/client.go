@@ -26,11 +26,11 @@ type Client struct {
 }
 
 // NewClient creates an authenticated Confluence client
-func NewClient(creds WorkspaceCredentials) *Client {
+func NewClient(creds WorkspaceCredentials, timeout time.Duration) *Client {
 	return &Client{
 		creds: creds,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: timeout,
 		},
 	}
 }
