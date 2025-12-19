@@ -63,6 +63,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenericResponse"
+  /api/tools/confluence_create_page:
+    post:
+      operationId: createConfluencePage
+      summary: Create a new page in Confluence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id:
+                  type: string
+                  description: The workspace ID to create the page in
+                space_key:
+                  type: string
+                  description: The space key where the page will be created
+                title:
+                  type: string
+                  description: The title of the new page
+                body:
+                  type: string
+                  description: The HTML content of the page
+                parent_id:
+                  type: string
+                  description: Optional parent page ID to create as a child page
+              required:
+                - workspace_id
+                - space_key
+                - title
+                - body
+      responses:
+        "200":
+          description: Created page details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericResponse"
   /api/tools/jira_list_projects:
     post:
       operationId: listJiraProjects
