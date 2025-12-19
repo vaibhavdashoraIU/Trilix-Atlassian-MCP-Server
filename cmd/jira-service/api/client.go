@@ -25,13 +25,22 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// Shared HTTP client with connection pooling
+var sharedHTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+		DisableKeepAlives:   false,
+	},
+}
+
 // NewClient creates an authenticated Jira client
 func NewClient(creds WorkspaceCredentials, timeout time.Duration) *Client {
 	return &Client{
-		creds: creds,
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
+		creds:      creds,
+		httpClient: sharedHTTPClient,
 	}
 }
 

@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/providentiaww/twistygo"
@@ -9,8 +13,6 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gopkg.in/yaml.v3"
-	"os"
-	"time"
 )
 
 const ServiceVersion = "v1.0.0"
@@ -70,15 +72,54 @@ func main() {
 
 	// Get service handle
 	svc := rconn.AmqpConnectService("JiraService")
-
-	// Defensive check: ensure ResponseQueue is initialized if the library missed it
-	if svc != nil && svc.ResponseQueue == nil {
-		svc.ResponseQueue = &amqp.Queue{}
+	if svc == nil {
+		panic("Failed to connect to JiraService queue")
 	}
 
-	// Start listening with handler function
-	svc.StartService(func(d amqp.Delivery) []byte {
-		return service.HandleRequest(d)
-	})
-}
+	// Manual multi-threaded service loop to avoid twistygo single-threaded bottleneck
+	msgs, err := svc.Amqp.Channel.Consume(
+		svc.Queue.Name,      // queue
+		"",                 // consumer
+		svc.Queue.AutoAck,   // auto-ack
+		svc.Queue.Exclusive, // exclusive
+		false,              // no-local
+		svc.Queue.NoWait,    // no-wait
+		nil,                // args
+	)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to start consumer: %v", err))
+	}
 
+	go func() {
+		for d := range msgs {
+			go func(delivery amqp.Delivery) {
+				// Process in goroutine
+				responseBytes := service.HandleRequest(delivery)
+
+				// Use twistygo's global channel to publish reply
+				err := svc.Amqp.Channel.Publish(
+					"",               // exchange
+					delivery.ReplyTo, // routing key (the reply queue)
+					false,            // mandatory
+					false,            // immediate
+					amqp.Publishing{
+						ContentType:   "application/json",
+						CorrelationId: delivery.CorrelationId,
+						Body:          responseBytes,
+					},
+				)
+				if err != nil {
+					fmt.Printf("Error publishing reply: %v\n", err)
+				}
+			}(d)
+		}
+	}()
+
+	fmt.Printf("Jira Service v%s is running (Multi-threaded). To exit press CTRL+C\n", ServiceVersion)
+	
+	// Wait for termination signal
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+	fmt.Println("Shutting down Jira Service...")
+}

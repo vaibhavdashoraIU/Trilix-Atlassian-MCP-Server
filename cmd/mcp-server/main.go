@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/providentiaww/twistygo"
@@ -122,7 +124,13 @@ func main() {
 		http.ServeFile(w, r, "../../frontend/trilix-preview.jsx")
 	})
 
-	// 2. Workspace Management API
+	// 2. Global Request Logger
+	mux.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(os.Stderr, "GLOBAL LOG: %s %s from %s\n", r.Method, r.URL.Path, r.RemoteAddr)
+		http.NotFound(w, r)
+	})
+
+	// 3. Workspace Management API
 	if clerkAuth != nil {
 		authMiddleware := auth.RequireAuth(clerkAuth)
 		
@@ -137,7 +145,10 @@ func main() {
 			}
 		})
 
-		mux.Handle("/api/workspaces", workspaceRouteHandler)
+	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(os.Stderr, "GLOBAL LOG: %s %s\n", r.Method, r.URL.Path)
+		workspaceRouteHandler.ServeHTTP(w, r)
+	})
 	mux.Handle("/api/workspaces/", authMiddleware.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/api/workspaces/" {
 				workspaceRouteHandler.ServeHTTP(w, r)
@@ -155,8 +166,11 @@ func main() {
 		}))
 
 		// REST Tool Execution (for ChatGPT)
-		restToolHandler := handlers.NewRestToolHandler(confluenceHandler, jiraHandler)
-		mux.Handle("/api/tools/", authMiddleware.HandlerFunc(restToolHandler.HandleToolRequest))
+		restToolHandler := handlers.NewRestToolHandler(confluenceHandler, jiraHandler, managementHandler)
+		mux.HandleFunc("/api/tools/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(os.Stderr, "GLOBAL LOG: %s %s\n", r.Method, r.URL.Path)
+			authMiddleware.Handler(http.HandlerFunc(restToolHandler.HandleToolRequest)).ServeHTTP(w, r)
+		})
 		
 	} else {
 		// Dev mode
@@ -167,7 +181,7 @@ func main() {
 				workspaceHandler.HandleCreateWorkspace(w, r)
 			}
 		})
-		restToolHandler := handlers.NewRestToolHandler(confluenceHandler, jiraHandler)
+		restToolHandler := handlers.NewRestToolHandler(confluenceHandler, jiraHandler, managementHandler)
 		mux.HandleFunc("/api/tools/", restToolHandler.HandleToolRequest)
 	}
 
@@ -220,12 +234,43 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 
+// cloneServiceQueue creates a shallow-ish copy of a ServiceQueue_t with its own Message
+// and ResponseQueue to avoid race conditions during concurrent tool calls.
+func cloneServiceQueue(src *twistygo.ServiceQueue_t) *twistygo.ServiceQueue_t {
+	if src == nil {
+		return nil
+	}
+	dst := *src
+	dst.Message = twistygo.MessageSet_t{}
+	dst.ResponseQueue = &amqp.Queue{}
+	dst.Headers = make(amqp.Table)
+	if src.Headers != nil {
+		for k, v := range src.Headers {
+			dst.Headers[k] = v
+		}
+	}
+	// Deep copy Queue parameters because twistygo modifies sq.Queue.Args in publishRPC
+	if src.Queue != nil {
+		qCopy := *src.Queue
+		if src.Queue.Args != nil {
+			argsCopy := make(amqp.Table)
+			for k, v := range *src.Queue.Args {
+				argsCopy[k] = v
+			}
+			qCopy.Args = &argsCopy
+		}
+		dst.Queue = &qCopy
+	}
+	return &dst
+}
+
 func createConfluenceCaller() func(models.ConfluenceRequest) (*models.ConfluenceResponse, error) {
 	return func(req models.ConfluenceRequest) (*models.ConfluenceResponse, error) {
 		// Connect to ConfluenceRequests queue
-		sq := rconn.AmqpConnectQueue("ConfluenceRequests")
-		if sq != nil && sq.ResponseQueue == nil {
-			sq.ResponseQueue = &amqp.Queue{}
+		sqGlobal := rconn.AmqpConnectQueue("ConfluenceRequests")
+		sq := cloneServiceQueue(sqGlobal)
+		if sq == nil {
+			return nil, fmt.Errorf("confluence queue not initialized")
 		}
 		sq.SetEncoding(twistygo.EncodingJson)
 
@@ -238,10 +283,26 @@ func createConfluenceCaller() func(models.ConfluenceRequest) (*models.Confluence
 		sq.Message.AppendData(req)
 		sq.Message.Encoded = reqBytes
 
-		// Publish and wait for response (RPC)
-		responseBytes, err := sq.Publish()
-		if err != nil {
-			return nil, err
+		// Publish and wait for response (RPC) with timeout
+		type publishResult struct {
+			resp []byte
+			err  error
+		}
+		resChan := make(chan publishResult, 1)
+		go func() {
+			resp, err := sq.Publish()
+			resChan <- publishResult{resp, err}
+		}()
+
+		var responseBytes []byte
+		select {
+		case res := <-resChan:
+			if res.err != nil {
+				return nil, res.err
+			}
+			responseBytes = res.resp
+		case <-time.After(35 * time.Second): // Slightly longer than API timeout (30s)
+			return nil, fmt.Errorf("RPC timeout: confluence service did not respond within 35s")
 		}
 
 		// Debug log raw response to aid troubleshooting unexpected payload shapes
@@ -260,9 +321,10 @@ func createConfluenceCaller() func(models.ConfluenceRequest) (*models.Confluence
 func createJiraCaller() func(models.JiraRequest) (*models.JiraResponse, error) {
 	return func(req models.JiraRequest) (*models.JiraResponse, error) {
 		// Connect to JiraRequests queue
-		sq := rconn.AmqpConnectQueue("JiraRequests")
-		if sq != nil && sq.ResponseQueue == nil {
-			sq.ResponseQueue = &amqp.Queue{}
+		sqGlobal := rconn.AmqpConnectQueue("JiraRequests")
+		sq := cloneServiceQueue(sqGlobal)
+		if sq == nil {
+			return nil, fmt.Errorf("jira queue not initialized")
 		}
 		sq.SetEncoding(twistygo.EncodingJson)
 
@@ -275,10 +337,26 @@ func createJiraCaller() func(models.JiraRequest) (*models.JiraResponse, error) {
 		sq.Message.AppendData(req)
 		sq.Message.Encoded = reqBytes
 
-		// Publish and wait for response (RPC)
-		responseBytes, err := sq.Publish()
-		if err != nil {
-			return nil, err
+		// Publish and wait for response (RPC) with timeout
+		type publishResult struct {
+			resp []byte
+			err  error
+		}
+		resChan := make(chan publishResult, 1)
+		go func() {
+			resp, err := sq.Publish()
+			resChan <- publishResult{resp, err}
+		}()
+
+		var responseBytes []byte
+		select {
+		case res := <-resChan:
+			if res.err != nil {
+				return nil, res.err
+			}
+			responseBytes = res.resp
+		case <-time.After(35 * time.Second): // Slightly longer than API timeout (30s)
+			return nil, fmt.Errorf("RPC timeout: jira service did not respond within 35s")
 		}
 
 		// Unmarshal response

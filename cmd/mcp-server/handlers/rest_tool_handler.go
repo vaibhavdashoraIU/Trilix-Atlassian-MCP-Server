@@ -14,13 +14,15 @@ import (
 type RestToolHandler struct {
 	confluenceHandler *ConfluenceHandler
 	jiraHandler       *JiraHandler
+	managementHandler *ManagementHandler
 }
 
 // NewRestToolHandler creates a new REST tool handler
-func NewRestToolHandler(confluenceHandler *ConfluenceHandler, jiraHandler *JiraHandler) *RestToolHandler {
+func NewRestToolHandler(confluenceHandler *ConfluenceHandler, jiraHandler *JiraHandler, managementHandler *ManagementHandler) *RestToolHandler {
 	return &RestToolHandler{
 		confluenceHandler: confluenceHandler,
 		jiraHandler:       jiraHandler,
+		managementHandler: managementHandler,
 	}
 }
 
@@ -33,45 +35,54 @@ func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Reque
 
 	// Extract tool name from URL path
 	// Expected format: /api/tools/{tool_name}
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) == 0 {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
+	fmt.Printf("Incoming REST request: %s %s from %s\n", r.Method, r.URL.Path, r.RemoteAddr)
+	
+	trimmedPath := strings.TrimSpace(r.URL.Path)
+	trimmedPath = strings.Trim(trimmedPath, "/")
+	parts := strings.Split(trimmedPath, "/")
+	
+	toolName := ""
+	if len(parts) >= 3 {
+		toolName = parts[2]
+	} else {
+		fmt.Printf("Malformed REST path: %s\n", r.URL.Path)
+		http.Error(w, "Invalid path format. Expected /api/tools/{tool_name}", http.StatusBadRequest)
 		return
 	}
-	toolName := parts[len(parts)-1]
 
 	// Extract user ID
 	userID := ""
 	if userCtx, ok := auth.ExtractUserFromContext(r.Context()); ok {
 		userID = userCtx.UserID
-	} else {
-		// Fallback for dev mode
-		// http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		// return
-	}
-
-	// Parse body as arguments
-	var arguments map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&arguments); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// Construct ToolCall
-	call := mcp.ToolCall{
-		Name:      toolName,
-		Arguments: arguments,
 	}
 
 	// Route to correct handler
 	var result mcp.ToolResult
 	var err error
 
-	if strings.HasPrefix(toolName, "confluence_") {
+	fmt.Printf("REST Tool Call: %s for user %s\n", toolName, userID)
+
+	// Parse body as arguments
+	var arguments map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&arguments); err != nil {
+		fmt.Printf("Error decoding request body: %v\n", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	call := mcp.ToolCall{
+		Name:      toolName,
+		Arguments: arguments,
+	}
+
+	if toolName == "list_workspaces" || toolName == "workspace_status" {
+		result, err = h.managementHandler.HandleTool(call, userID)
+	} else if strings.HasPrefix(toolName, "confluence_") {
 		result, err = h.confluenceHandler.HandleTool(call, userID)
 	} else if strings.HasPrefix(toolName, "jira_") {
 		result, err = h.jiraHandler.HandleTool(call, userID)
 	} else {
+		fmt.Printf("Unknown REST tool: %s\n", toolName)
 		http.Error(w, fmt.Sprintf("Unknown tool: %s", toolName), http.StatusBadRequest)
 		return
 	}
