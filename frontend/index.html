@@ -228,16 +228,55 @@
 
                 // Request a long-lived token using the 'chatgpt' template
                 const token = await window.Clerk.session.getToken({ template: 'chatgpt' });
-                await navigator.clipboard.writeText(token);
 
-                feedback.textContent = '✅ Long-Lived Token Copied!';
-                feedback.style.color = '#00D4AA';
-                setTimeout(() => feedback.textContent = '', 3000);
+                // Use fallback if navigator.clipboard is unavailable (HTTP)
+                if (!navigator.clipboard) {
+                    fallbackCopyTextToClipboard(token, feedback);
+                    return;
+                }
+
+                await navigator.clipboard.writeText(token);
+                showSuccess(feedback);
             } catch (err) {
                 console.error('Failed to copy: ', err);
                 feedback.textContent = '❌ Failed. Did you create the "chatgpt" template?';
                 feedback.style.color = '#FF6B35';
             }
+        }
+
+        function fallbackCopyTextToClipboard(text, feedback) {
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+
+            // Ensure textArea is not visible but part of DOM
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                var successful = document.execCommand('copy');
+                if (successful) {
+                    showSuccess(feedback);
+                } else {
+                    throw new Error('Fallback copy failed');
+                }
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+                feedback.textContent = '❌ Copy failed (Browser restriction)';
+                feedback.style.color = '#FF6B35';
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        function showSuccess(feedback) {
+            feedback.textContent = '✅ Long-Lived Token Copied!';
+            feedback.style.color = '#00D4AA';
+            setTimeout(() => feedback.textContent = '', 3000);
         }
     </script>
 </body>
