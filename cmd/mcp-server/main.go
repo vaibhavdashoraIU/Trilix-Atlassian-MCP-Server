@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -16,6 +15,8 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"os"
+	"path/filepath"
 )
 
 const ServiceVersion = "v1.0.0"
@@ -23,11 +24,19 @@ const ServiceVersion = "v1.0.0"
 var rconn *twistygo.AmqpConnection_t
 
 func init() {
-	// Load environment variables FIRST from project root
-	if err := godotenv.Load("../../.env"); err != nil {
+	// Load environment variables FIRST from project root or current dir
+	envFile := os.Getenv("ENV_FILE_PATH")
+	if envFile == "" {
+		envFile = "../../.env"
+	}
+
+	if err := godotenv.Load(envFile); err != nil {
 		// Try current directory as fallback
 		if err := godotenv.Load(); err != nil {
-			fmt.Printf("Warning: .env file not found: %v\n", err)
+			// Don't log if running in K8s/Docker where env is injected
+			if os.Getenv("KUBERNETES_SERVICE_HOST") == "" {
+				fmt.Printf("Note: .env file not found at %s. Using system environment variables.\n", envFile)
+			}
 		}
 	}
 
@@ -98,30 +107,34 @@ func main() {
 	mux := http.NewServeMux()
 
 	// 1. Static File Serving (Replaces Python server)
-	// Serve specific frontend files from frontend folder
-	
+	// Use FRONTEND_PATH override for containerization
+	frontendPath := os.Getenv("FRONTEND_PATH")
+	if frontendPath == "" {
+		frontendPath = "../../frontend"
+	}
+
 	// Root path serves index.html
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			http.ServeFile(w, r, "../../frontend/index.html")
+			http.ServeFile(w, r, filepath.Join(frontendPath, "index.html"))
 			return
 		}
 		// For other paths, serve from root directory
-		http.FileServer(http.Dir("../../")).ServeHTTP(w, r)
+		http.FileServer(http.Dir(frontendPath)).ServeHTTP(w, r)
 	})
 	
 	// Map frontend URLs to new frontend folder
 	mux.HandleFunc("/docs/test-client.html", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../../frontend/test-client.html")
+		http.ServeFile(w, r, filepath.Join(frontendPath, "test-client.html"))
 	})
 	mux.HandleFunc("/workspaces.html", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../../frontend/workspaces.html")
+		http.ServeFile(w, r, filepath.Join(frontendPath, "workspaces.html"))
 	})
 	mux.HandleFunc("/index.html", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../../frontend/index.html")
+		http.ServeFile(w, r, filepath.Join(frontendPath, "index.html"))
 	})
 	mux.HandleFunc("/trilix-preview.jsx", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../../frontend/trilix-preview.jsx")
+		http.ServeFile(w, r, filepath.Join(frontendPath, "trilix-preview.jsx"))
 	})
 
 	// 2. Global Request Logger

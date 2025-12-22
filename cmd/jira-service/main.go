@@ -26,11 +26,19 @@ type AppConfig struct {
 }
 
 func init() {
-	// Load environment variables FIRST from project root
-	if err := godotenv.Load("../../.env"); err != nil {
+	// Load environment variables FIRST from project root or current dir
+	envFile := os.Getenv("ENV_FILE_PATH")
+	if envFile == "" {
+		envFile = "../../.env"
+	}
+
+	if err := godotenv.Load(envFile); err != nil {
 		// Try current directory as fallback
 		if err := godotenv.Load(); err != nil {
-			fmt.Printf("Warning: .env file not found: %v\n", err)
+			// Don't log if running in K8s/Docker where env is injected
+			if os.Getenv("KUBERNETES_SERVICE_HOST") == "" {
+				fmt.Printf("Note: .env file not found at %s. Using system environment variables.\n", envFile)
+			}
 		}
 	}
 
