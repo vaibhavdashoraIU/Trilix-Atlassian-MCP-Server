@@ -15,3 +15,6 @@ rabbitmq:
     username: trilix
     password: secret
 
+atlassian:
+  timeout: 30s
+

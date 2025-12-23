@@ -27,12 +27,12 @@ Get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken
 ### Step 3: Start ngrok Tunnel
 ```bash
 # In a new terminal window
-ngrok http 3001
+ngrok http 3000
 ```
 
 You'll see output like:
 ```
-Forwarding  https://abc123.ngrok.io -> http://localhost:3001
+Forwarding  https://abc123.ngrok.io -> http://localhost:3000
 ```
 
 ### Step 4: Use ngrok URL in n8n Cloud
@@ -54,7 +54,7 @@ cd /Users/vaibhavdashora/Desktop/IdeaUsher/Trilix-Atlassian-MCP-Server
 ./start-services.sh
 
 # Terminal 2: Start ngrok tunnel
-ngrok http 3001
+ngrok http 3000
 ```
 
 ## 📋 n8n Cloud Configuration
@@ -70,7 +70,7 @@ ngrok http 3001
 
 ### Test 1: Check local server
 ```bash
-curl http://localhost:3001/sse
+curl http://localhost:3000/sse
 ```
 
 ### Test 2: Check ngrok tunnel
@@ -112,7 +112,7 @@ Your MCP server will be publicly accessible via ngrok. Consider adding:
 ./start-services.sh
 
 # In new terminal, start ngrok
-ngrok http 3001
+ngrok http 3000
 
 # Copy the https URL from ngrok output
 # Paste it in n8n Cloud as the endpoint
@@ -123,7 +123,7 @@ ngrok http 3001
 - [ ] Backend services running (`./start-services.sh`)
 - [ ] ngrok installed
 - [ ] ngrok authenticated
-- [ ] ngrok tunnel running (`ngrok http 3001`)
+- [ ] ngrok tunnel running (`ngrok http 3000`)
 - [ ] Copied ngrok HTTPS URL
 - [ ] Used ngrok URL in n8n Cloud
 - [ ] Tested connection in n8n

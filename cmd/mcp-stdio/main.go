@@ -13,7 +13,7 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
 )
 
-var rconn *twistygo.AmqpConn_t
+var rconn *twistygo.AmqpConnection_t
 
 func init() {
 	if err := godotenv.Load("../../.env"); err != nil {

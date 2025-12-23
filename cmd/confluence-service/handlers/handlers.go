@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/providentiaww/trilix-atlassian-mcp/cmd/confluence-service/api"
+	"github.com/providentiaww/trilix-atlassian-mcp/internal/cache"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -13,13 +15,17 @@ import (
 
 // Service handles Confluence service requests
 type Service struct {
-	credStore storage.CredentialStoreInterface
+	credStore  storage.CredentialStoreInterface
+	apiTimeout time.Duration
+	cache      *cache.SimpleCache
 }
 
 // NewService creates a new Confluence service
-func NewService(credStore storage.CredentialStoreInterface) *Service {
+func NewService(credStore storage.CredentialStoreInterface, timeout time.Duration) *Service {
 	return &Service{
-		credStore: credStore,
+		credStore:  credStore,
+		apiTimeout: timeout,
+		cache:      cache.NewSimpleCache(),
 	}
 }
 
@@ -54,7 +60,7 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		Site:  site,
 		Email: creds.Email,
 		Token: creds.Token,
-	})
+	}, s.apiTimeout)
 
 	// Route to appropriate handler
 	var response map[string]interface{}
@@ -143,6 +149,15 @@ func (s *Service) handleSearch(client *api.Client, req models.ConfluenceRequest)
 }
 
 func (s *Service) handleListSpaces(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	// Check cache first
+	cacheKey := fmt.Sprintf("spaces:%s:%s", req.UserID, req.WorkspaceID)
+	if cached, found := s.cache.Get(cacheKey); found {
+		if cachedData, ok := cached.(map[string]interface{}); ok {
+			return cachedData
+		}
+	}
+
+	// Cache miss - fetch from API
 	limit := 50
 	if l, ok := req.Params["limit"].(float64); ok {
 		limit = int(l)
@@ -153,7 +168,12 @@ func (s *Service) handleListSpaces(client *api.Client, req models.ConfluenceRequ
 		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
 	}
 
-	return models.SuccessResponse(spaces, req.RequestID)
+	response := models.SuccessResponse(spaces, req.RequestID)
+
+	// Cache for 2 minutes
+	s.cache.Set(cacheKey, response, 2*time.Minute)
+
+	return response
 }
 
 func (s *Service) handleGetSpace(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
@@ -214,13 +234,13 @@ func (s *Service) handleCopyPage(req models.ConfluenceRequest) map[string]interf
 		Site:  srcCreds.Site,
 		Email: srcCreds.Email,
 		Token: srcCreds.Token,
-	})
+	}, s.apiTimeout)
 
 	dstClient := api.NewClient(api.WorkspaceCredentials{
 		Site:  dstCreds.Site,
 		Email: dstCreds.Email,
 		Token: dstCreds.Token,
-	})
+	}, s.apiTimeout)
 
 	// Read from source
 	page, err := srcClient.GetPage(srcPageID)

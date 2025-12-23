@@ -5,7 +5,7 @@ echo ""
 
 # Test 1: Check if server is running
 echo "1. Testing local server..."
-response=$(curl -s -X POST http://localhost:3001/message \
+response=$(curl -s -X POST http://localhost:3000/message \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}')
 
@@ -41,7 +41,7 @@ else
     echo "❌ ngrok is NOT running"
     echo ""
     echo "Start ngrok in a new terminal:"
-    echo "  ngrok http 3001"
+    echo "  ngrok http 3000"
 fi
 
 echo ""

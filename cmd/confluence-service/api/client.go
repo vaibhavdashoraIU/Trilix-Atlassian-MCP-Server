@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 )
@@ -24,11 +25,22 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// Shared HTTP client with connection pooling
+var sharedHTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+		DisableKeepAlives:   false,
+	},
+}
+
 // NewClient creates an authenticated Confluence client
-func NewClient(creds WorkspaceCredentials) *Client {
+func NewClient(creds WorkspaceCredentials, timeout time.Duration) *Client {
 	return &Client{
 		creds:      creds,
-		httpClient: &http.Client{},
+		httpClient: sharedHTTPClient,
 	}
 }
 

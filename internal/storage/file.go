@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
@@ -21,6 +23,7 @@ type CredentialStoreInterface interface {
 
 // WorkspaceConfig represents the structure of workspaces.json
 type WorkspaceConfig struct {
+	ID       string `json:"id,omitempty"` // Added for UUID support
 	Name     string `json:"name"`
 	BaseURL  string `json:"baseUrl"`
 	Email    string `json:"email"`
@@ -28,12 +31,12 @@ type WorkspaceConfig struct {
 }
 
 // FileCredentialStore handles storage and retrieval of Atlassian credentials from a JSON file
-// Supports multiple workspaces simultaneously - users can connect to several Atlassian organizations
-// and query them in the same session by specifying different workspace_id values
+// Supports multiple workspaces simultaneously
 type FileCredentialStore struct {
-	filePath string
-	workspaces map[string]WorkspaceConfig // Indexed by workspace name (workspace_id)
-	lastModTime time.Time // Track file modification time
+	filePath    string
+	workspaces  map[string]WorkspaceConfig // Indexed by workspace ID (or name if ID missing)
+	lastModTime time.Time                  // Track file modification time
+	mu          sync.RWMutex               // Thread safety
 }
 
 // NewFileCredentialStore creates a new file-based credential store
@@ -59,6 +62,12 @@ func (s *FileCredentialStore) loadWorkspaces() error {
 		return err
 	}
 
+	// Check if file exists
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		s.workspaces = make(map[string]WorkspaceConfig)
+		return nil
+	}
+
 	// Read file
 	data, err := os.ReadFile(absPath)
 	if err != nil {
@@ -67,13 +76,23 @@ func (s *FileCredentialStore) loadWorkspaces() error {
 
 	// Parse JSON
 	var workspaces []WorkspaceConfig
-	if err := json.Unmarshal(data, &workspaces); err != nil {
-		return fmt.Errorf("failed to parse workspaces JSON: %w", err)
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &workspaces); err != nil {
+			return fmt.Errorf("failed to parse workspaces JSON: %w", err)
+		}
 	}
 
-	// Index by name (workspace ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.workspaces = make(map[string]WorkspaceConfig)
+	// Index by ID if present, else Name
 	for _, ws := range workspaces {
-		s.workspaces[ws.Name] = ws
+		id := ws.ID
+		if id == "" {
+			id = ws.Name
+		}
+		s.workspaces[id] = ws
 	}
 
 	// Update last modification time
@@ -84,11 +103,46 @@ func (s *FileCredentialStore) loadWorkspaces() error {
 	return nil
 }
 
+// saveToFile writes the current workspaces to the JSON file
+func (s *FileCredentialStore) saveToFile() error {
+	s.mu.RLock()
+	var list []WorkspaceConfig
+	for _, ws := range s.workspaces {
+		list = append(list, ws)
+	}
+	s.mu.RUnlock()
+
+	// Sort by Name for stable output
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Name < list[j].Name
+	})
+
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	absPath, err := filepath.Abs(s.filePath)
+	if err != nil {
+		return err
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(absPath, data, 0644)
+}
+
 // GetCredentials retrieves credentials for a user/workspace
-// Note: userID is ignored in file-based storage as it's designed for single-user local development
 func (s *FileCredentialStore) GetCredentials(userID, workspaceID string) (*models.WorkspaceCredentials, error) {
 	s.checkAndReload()
+	
+	s.mu.RLock()
 	ws, exists := s.workspaces[workspaceID]
+	s.mu.RUnlock()
+
 	if !exists {
 		return nil, ErrNotFound
 	}
@@ -100,28 +154,60 @@ func (s *FileCredentialStore) GetCredentials(userID, workspaceID string) (*model
 	}, nil
 }
 
-// SaveCredentials is a no-op for file-based storage (read-only)
+// SaveCredentials saves credentials to the file
 func (s *FileCredentialStore) SaveCredentials(cred *models.AtlassianCredential) error {
-	return fmt.Errorf("file-based credential store is read-only")
+	s.checkAndReload()
+
+	s.mu.Lock()
+	// Use generated ID as key
+	id := cred.WorkspaceID
+	if id == "" {
+		id = cred.WorkspaceName // Fallback, though WorkspaceID should be set by handler
+	}
+
+	s.workspaces[id] = WorkspaceConfig{
+		ID:       id,
+		Name:     cred.WorkspaceName,
+		BaseURL:  cred.AtlassianURL,
+		Email:    cred.Email,
+		APIToken: cred.APIToken,
+	}
+	s.mu.Unlock()
+
+	return s.saveToFile()
 }
 
-// DeleteCredentials is a no-op for file-based storage (read-only)
+// DeleteCredentials removes credentials from the file
 func (s *FileCredentialStore) DeleteCredentials(userID, workspaceID string) error {
-	return fmt.Errorf("file-based credential store is read-only")
+	s.checkAndReload()
+
+	s.mu.Lock()
+	if _, exists := s.workspaces[workspaceID]; !exists {
+		s.mu.Unlock()
+		return ErrNotFound
+	}
+	delete(s.workspaces, workspaceID)
+	s.mu.Unlock()
+
+	return s.saveToFile()
 }
 
 // ListWorkspaces returns all workspaces from the file
 func (s *FileCredentialStore) ListWorkspaces(userID string) ([]models.AtlassianCredential, error) {
 	s.checkAndReload()
+	
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var credentials []models.AtlassianCredential
-	for name, ws := range s.workspaces {
+	for id, ws := range s.workspaces {
 		credentials = append(credentials, models.AtlassianCredential{
-			UserID:        userID, // Use provided userID or empty string
-			WorkspaceID:   name,
-			WorkspaceName: name,
-			AtlassianURL: ws.BaseURL,
+			UserID:        userID,
+			WorkspaceID:   id, // This is either UUID or Name
+			WorkspaceName: ws.Name,
+			AtlassianURL:  ws.BaseURL,
 			Email:         ws.Email,
-			APIToken:      ws.APIToken, // Include token for debugging
+			APIToken:      ws.APIToken,
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 		})
@@ -145,10 +231,12 @@ func (s *FileCredentialStore) checkAndReload() {
 	if err != nil {
 		return
 	}
+	
+	s.mu.RLock()
+	lastMod := s.lastModTime
+	s.mu.RUnlock()
 
-	if stat.ModTime().After(s.lastModTime) {
-		// Clear existing workspaces before reloading
-		s.workspaces = make(map[string]WorkspaceConfig)
+	if stat.ModTime().After(lastMod) {
 		s.loadWorkspaces()
 	}
 }

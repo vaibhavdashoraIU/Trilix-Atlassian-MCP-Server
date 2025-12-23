@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trilix
+  labels:
+    name: trilix
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trilix-config
+  namespace: trilix
+data:
+  # RabbitMQ connection
+  RABBITMQ_HOST: "rabbitmq-0.rabbitmq.trilix.svc.cluster.local"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "trilix"
+  
+  # PostgreSQL connection
+  POSTGRES_HOST: "postgres.trilix.svc.cluster.local"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "trilix_mcp"
+  
+  # Service ports
+  MCP_SERVER_PORT: "3000"
+  
+  # Paths for containerized environment
+  ENV_FILE_PATH: ""  # Empty - use K8s env vars
+  FRONTEND_PATH: "/root/frontend"

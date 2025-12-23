@@ -6,50 +6,27 @@ import (
 	"io"
 	"net/http"
 	"sync"
+
+	"github.com/providentiaww/trilix-atlassian-mcp/cmd/mcp-server/auth"
 )
 
 // SSEServer implements MCP protocol over Server-Sent Events
 type SSEServer struct {
 	server  *Server
-	handler func(ToolCall) (ToolResult, error)
+	handler func(ToolCall, string) (ToolResult, error) // Updated to accept userID
 	mu      sync.Mutex
 }
 
 // NewSSEServer creates a new SSE-based MCP server
-func NewSSEServer(server *Server, handler func(ToolCall) (ToolResult, error)) *SSEServer {
+func NewSSEServer(server *Server, handler func(ToolCall, string) (ToolResult, error)) *SSEServer {
 	return &SSEServer{
 		server:  server,
 		handler: handler,
 	}
 }
 
-// StartSSE starts the SSE server
-func (s *SSEServer) StartSSE(port int) error {
-	http.HandleFunc("/", s.handleMessage)        // Root endpoint for n8n
-	http.HandleFunc("/sse", s.handleSSE)
-	http.HandleFunc("/message", s.handleMessage)
-
-	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("MCP SSE Server listening on %s\n", addr)
-	return http.ListenAndServe(addr, s.corsMiddleware(http.DefaultServeMux))
-}
-
-func (s *SSEServer) corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (s *SSEServer) handleSSE(w http.ResponseWriter, r *http.Request) {
+// HandleSSE handles SSE connection establishment
+func (s *SSEServer) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -64,11 +41,12 @@ func (s *SSEServer) handleSSE(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "event: endpoint\ndata: /message\n\n")
 	flusher.Flush()
 
-	// Keep connection alive
+	// Keep connection alive until client disconnects
 	<-r.Context().Done()
 }
 
-func (s *SSEServer) handleMessage(w http.ResponseWriter, r *http.Request) {
+// HandleMessage handles MCP protocol messages
+func (s *SSEServer) HandleMessage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -95,7 +73,7 @@ func (s *SSEServer) handleMessage(w http.ResponseWriter, r *http.Request) {
 	case "tools/list":
 		response = s.handleListTools()
 	case "tools/call":
-		response = s.handleToolCall(request)
+		response = s.handleToolCall(request, r)
 	default:
 		response = map[string]interface{}{
 			"jsonrpc": "2.0",
@@ -138,7 +116,7 @@ func (s *SSEServer) handleListTools() map[string]interface{} {
 	}
 }
 
-func (s *SSEServer) handleToolCall(request map[string]interface{}) map[string]interface{} {
+func (s *SSEServer) handleToolCall(request map[string]interface{}, r *http.Request) map[string]interface{} {
 	params, ok := request["params"].(map[string]interface{})
 	if !ok {
 		return map[string]interface{}{
@@ -157,7 +135,13 @@ func (s *SSEServer) handleToolCall(request map[string]interface{}) map[string]in
 		Arguments: arguments,
 	}
 
-	result, err := s.handler(toolCall)
+	// Extract userID from request context (set by auth middleware)
+	userID := ""
+	if userCtx, ok := auth.ExtractUserFromContext(r.Context()); ok {
+		userID = userCtx.UserID
+	}
+
+	result, err := s.handler(toolCall, userID)
 	if err != nil {
 		return map[string]interface{}{
 			"error": map[string]interface{}{
@@ -170,4 +154,29 @@ func (s *SSEServer) handleToolCall(request map[string]interface{}) map[string]in
 	return map[string]interface{}{
 		"result": result,
 	}
+}
+
+// StreamEvent represents an SSE event
+type StreamEvent struct {
+	Type    string      `json:"type"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+}
+
+// SendSSEEvent sends an SSE event to the client
+func SendSSEEvent(w http.ResponseWriter, event StreamEvent) error {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return fmt.Errorf("streaming not supported")
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, "data: %s\n\n", data)
+	flusher.Flush()
+	return nil
 }

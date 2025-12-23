@@ -8,17 +8,20 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"time"
 )
 
 // Service handles Jira service requests
 type Service struct {
-	credStore storage.CredentialStoreInterface
+	credStore  storage.CredentialStoreInterface
+	apiTimeout time.Duration
 }
 
 // NewService creates a new Jira service
-func NewService(credStore storage.CredentialStoreInterface) *Service {
+func NewService(credStore storage.CredentialStoreInterface, timeout time.Duration) *Service {
 	return &Service{
-		credStore: credStore,
+		credStore:  credStore,
+		apiTimeout: timeout,
 	}
 }
 
@@ -45,7 +48,7 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		Site:  creds.Site,
 		Email: creds.Email,
 		Token: creds.Token,
-	})
+	}, s.apiTimeout)
 
 	// Route to appropriate handler
 	var response map[string]interface{}
@@ -62,6 +65,8 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		response = s.handleAddComment(client, req)
 	case "transition_issue":
 		response = s.handleTransitionIssue(client, req)
+	case "list_projects":
+		response = s.handleListProjects(client, req)
 	default:
 		response = models.ErrorResponse(models.ErrCodeInvalidRequest,
 			fmt.Sprintf("unknown action: %s", req.Action), req.RequestID)
@@ -210,5 +215,14 @@ func (s *Service) handleTransitionIssue(client *api.Client, req models.JiraReque
 	}
 
 	return models.SuccessResponse(map[string]string{"status": "transitioned"}, req.RequestID)
+}
+
+func (s *Service) handleListProjects(client *api.Client, req models.JiraRequest) map[string]interface{} {
+	projects, err := client.ListProjects()
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(projects, req.RequestID)
 }
 

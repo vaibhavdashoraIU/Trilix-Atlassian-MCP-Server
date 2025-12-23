@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trilix MCP Test Client (Comprehensive)</title>
+    <style>
+        :root {
+            --bg: #0F172A;
+            --surface: #1E293B;
+            --primary: #3B82F6;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --border: #334155;
+            --success: #10B981;
+            --error: #EF4444;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            height: fit-content;
+        }
+
+        .tool-category {
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: var(--primary);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+
+        .tool-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 10px;
+            margin-bottom: 5px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .tool-btn:hover {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--text-main);
+        }
+
+        .tool-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Main Content */
+        .main {
+            background: var(--surface);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            min-height: 80vh;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        button.action-btn {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button.action-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Auth Status */
+        .auth-status {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 6px;
+            color: var(--success);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Response Area */
+        #response-area {
+            margin-top: 20px;
+            background: #0d1117;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            color: #e6edf3;
+            border: 1px solid var(--border);
+            min-height: 200px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="sidebar">
+            <div id="auth-check" class="auth-status">
+                Checking Auth...
+            </div>
+
+            <div class="tool-category">Workspace</div>
+            <button class="tool-btn active" onclick="showForm('workspaces')">List Workspaces</button>
+
+            <div class="tool-category">Confluence</div>
+            <button class="tool-btn" onclick="showForm('confluence_list_spaces')">List Spaces</button>
+            <button class="tool-btn" onclick="showForm('confluence_get_page')">Get Page</button>
+            <button class="tool-btn" onclick="showForm('confluence_search')">Search CQL</button>
+            <button class="tool-btn" onclick="showForm('confluence_create_page')">Create Page</button>
+
+            <div class="tool-category">Jira</div>
+            <button class="tool-btn" onclick="showForm('jira_list_projects')">List Projects</button>
+            <button class="tool-btn" onclick="showForm('jira_list_issues')">List Issues (JQL)</button>
+            <button class="tool-btn" onclick="showForm('jira_get_issue')">Get Issue</button>
+            <button class="tool-btn" onclick="showForm('jira_create_issue')">Create Issue</button>
+            <button class="tool-btn" onclick="showForm('jira_update_issue')">Update Issue</button>
+            <button class="tool-btn" onclick="showForm('jira_add_comment')">Add Comment</button>
+            <button class="tool-btn" onclick="showForm('jira_transition_issue')">Transition Issue</button>
+        </div>
+
+        <div class="main">
+            <h2 id="form-title">List Workspaces</h2>
+            <p id="form-desc" style="color: var(--text-muted); margin-bottom: 20px;">Get all connected workspaces and
+                their IDs.</p>
+
+            <div id="dynamic-form">
+                <!-- Forms will be injected here -->
+            </div>
+
+            <div id="response-area">Response will appear here...</div>
+        </div>
+    </div>
+
+    <!-- Clerk -->
+    <script async crossorigin="anonymous"
+        data-clerk-publishable-key="pk_test_Zmx5aW5nLWtvYWxhLTEwLmNsZXJrLmFjY291bnRzLmRldiQ"
+        src="https://flying-koala-10.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"></script>
+
+    <script>
+        const API_BASE = '';
+        let currentToken = '';
+
+        // -- TOOL SCHEMAS --
+        // Defines the fields for each tool to dynamically generate forms
+        const TOOLS = {
+            workspaces: {
+                title: "List Workspaces",
+                desc: "Get all connected workspaces. Copy the 'workspaceId' for other tools.",
+                fields: [], // No fields needed
+                endpoint: '/api/workspaces',
+                method: 'GET'
+            },
+            confluence_list_spaces: {
+                title: "Confluence: List Spaces",
+                desc: "List all spaces in a specific workspace.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text', placeholder: 'Get from List Workspaces' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 50 }
+                ],
+                endpoint: '/api/tools/confluence_list_spaces',
+                method: 'POST'
+            },
+            confluence_get_page: {
+                title: "Confluence: Get Page",
+                desc: "Retrieve content of a specific page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/confluence_get_page',
+                method: 'POST'
+            },
+            confluence_search: {
+                title: "Confluence: Search (CQL)",
+                desc: "Search using Confluence Query Language.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'query', label: 'CQL Query', type: 'text', placeholder: 'type="page" AND title ~ "meeting"' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 10 }
+                ],
+                endpoint: '/api/tools/confluence_search',
+                method: 'POST'
+            },
+            confluence_create_page: {
+                title: "Confluence: Create Page",
+                desc: "Create a new page in a space.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'space_key', label: 'Space Key', type: 'text' },
+                    { name: 'title', label: 'Page Title', type: 'text' },
+                    { name: 'body', label: 'Body (Storage Format)', type: 'textarea', placeholder: '<p>Hello world</p>' },
+                    { name: 'parent_id', label: 'Parent Page ID (Optional)', type: 'text' }
+                ],
+                endpoint: '/api/tools/confluence_create_page',
+                method: 'POST'
+            },
+            jira_list_projects: {
+                title: "Jira: List Projects",
+                desc: "List all accessible Jira projects.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_list_projects',
+                method: 'POST'
+            },
+            jira_list_issues: {
+                title: "Jira: List Issues (JQL)",
+                desc: "Search Jira issues using JQL.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'jql', label: 'JQL Query', type: 'text', placeholder: 'project = PROJ', value: 'order by created DESC' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 50 }
+                ],
+                endpoint: '/api/tools/jira_list_issues',
+                method: 'POST'
+            },
+            jira_get_issue: {
+                title: "Jira: Get Issue",
+                desc: "Get details of a single issue.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'issue_key', label: 'Issue Key', type: 'text', placeholder: 'PROJ-123' }
+                ],
+                endpoint: '/api/tools/jira_get_issue',
+                method: 'POST'
+            },
+            jira_create_issue: {
+                title: "Jira: Create Issue",
+                desc: "Create a new Jira issue.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'project_key', label: 'Project Key', type: 'text', placeholder: 'PROJ' },
+                    { name: 'issue_type', label: 'Issue Type', type: 'text', placeholder: 'Task' },
+                    { name: 'summary', label: 'Summary', type: 'text' },
+                    { name: 'description', label: 'Description', type: 'textarea' }
+                ],
+                endpoint: '/api/tools/jira_create_issue',
+                method: 'POST'
+            },
+            jira_update_issue: {
+                title: "Jira: Update Issue",
+                desc: "Update fields of an existing issue.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'issue_key', label: 'Issue Key', type: 'text', placeholder: 'PROJ-123' },
+                    { name: 'fields', label: 'Fields (JSON)', type: 'textarea', placeholder: '{"summary": "New Title"}' }
+                ],
+                endpoint: '/api/tools/jira_update_issue',
+                method: 'POST'
+            },
+            jira_add_comment: {
+                title: "Jira: Add Comment",
+                desc: "Add a comment to an issue.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'issue_key', label: 'Issue Key', type: 'text', placeholder: 'PROJ-123' },
+                    { name: 'body', label: 'Comment Body', type: 'textarea' }
+                ],
+                endpoint: '/api/tools/jira_add_comment',
+                method: 'POST'
+            },
+            jira_transition_issue: {
+                title: "Jira: Transition Issue",
+                desc: "Move an issue to a different status.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'issue_key', label: 'Issue Key', type: 'text' },
+                    { name: 'transition_id', label: 'Transition ID', type: 'text', placeholder: '31' }
+                ],
+                endpoint: '/api/tools/jira_transition_issue',
+                method: 'POST'
+            }
+        };
+
+        let currentTool = 'workspaces';
+
+        // -- AUTH INITIALIZATION --
+        window.addEventListener('load', async () => {
+            const authStatus = document.getElementById('auth-check');
+
+            if (!window.Clerk) {
+                authStatus.innerHTML = '❌ Clerk failed to load';
+                authStatus.style.color = 'var(--error)';
+                return;
+            }
+
+            try {
+                await window.Clerk.load();
+
+                // Official method to listen for auth transitions
+                window.Clerk.addListener(async ({ user }) => {
+                    if (user) {
+                        // Mount the User Button (Avatar + Sign Out)
+                        authStatus.innerHTML = ''; // Clear "Checking Auth..."
+                        window.Clerk.mountUserButton(authStatus);
+
+                        // Get the long-lived token if available
+                        try {
+                            currentToken = await window.Clerk.session.getToken({ template: 'chatgpt' });
+                        } catch (e) {
+                            console.log("Custom template not found, using default");
+                            currentToken = await window.Clerk.session.getToken();
+                        }
+
+                        // Load default form
+                        showForm('workspaces');
+                    } else {
+                        currentToken = '';
+                        authStatus.innerHTML = `
+                        <button style="background:var(--primary); color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; width:100%;" onclick="Clerk.openSignIn()">Sign In</button>
+                    `;
+                        document.getElementById('dynamic-form').innerHTML = '';
+                        document.getElementById('response-area').innerText = 'Please sign in to run requests.';
+                    }
+                });
+            } catch (err) {
+                console.error(err);
+                authStatus.textContent = '❌ Auth Error: ' + err.message;
+            }
+        });
+
+        // -- UI LOGIC --
+        function showForm(toolKey) {
+            currentTool = toolKey;
+            const tool = TOOLS[toolKey];
+
+            // Update Sidebar
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            event?.target?.classList?.add('active'); // Might be undefined on initial load
+
+            // Update Title/Desc
+            document.getElementById('form-title').innerText = tool.title;
+            document.getElementById('form-desc').innerText = tool.desc;
+
+            // Build Form
+            const formContainer = document.getElementById('dynamic-form');
+            formContainer.innerHTML = '';
+
+            if (tool.fields.length > 0) {
+                tool.fields.forEach(field => {
+                    const div = document.createElement('div');
+                    div.className = 'form-group';
+
+                    const label = document.createElement('label');
+                    label.innerText = field.label;
+
+                    let input;
+                    if (field.type === 'textarea') {
+                        input = document.createElement('textarea');
+                        input.rows = 4;
+                    } else {
+                        input = document.createElement('input');
+                        input.type = field.type;
+                    }
+
+                    input.id = `input-${field.name}`;
+                    if (field.value) input.value = field.value;
+                    if (field.placeholder) input.placeholder = field.placeholder;
+
+                    // Persistence utility: try to autofill workspace_id from last usage
+                    if (field.name === 'workspace_id') {
+                        const saved = localStorage.getItem('last_workspace_id');
+                        if (saved) input.value = saved;
+                        input.addEventListener('change', (e) => localStorage.setItem('last_workspace_id', e.target.value));
+                    }
+
+                    div.appendChild(label);
+                    div.appendChild(input);
+                    formContainer.appendChild(div);
+                });
+            }
+
+            // Add Submit Button
+            const btn = document.createElement('button');
+            btn.className = 'action-btn';
+            btn.innerText = 'Run Request 🚀';
+            btn.onclick = executeRequest;
+            formContainer.appendChild(btn);
+
+            // Clear response
+            document.getElementById('response-area').innerText = 'Ready to launch...';
+        }
+
+        async function executeRequest() {
+            const tool = TOOLS[currentTool];
+            const responseArea = document.getElementById('response-area');
+            responseArea.innerText = 'Running...';
+
+            // Collect Data
+            const data = {};
+            tool.fields.forEach(field => {
+                const el = document.getElementById(`input-${field.name}`);
+                if (el) {
+                    // Convert numbers
+                    if (field.type === 'number') {
+                        data[field.name] = parseInt(el.value, 10);
+                    } else {
+                        data[field.name] = el.value;
+                    }
+                }
+            });
+
+            if (!currentToken) {
+                responseArea.innerText = '❌ Error: You are not signed in.';
+                return;
+            }
+
+            try {
+                let url = API_BASE + tool.endpoint;
+                let options = {
+                    method: tool.method,
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                };
+
+                if (tool.method === 'POST') {
+                    options.body = JSON.stringify(data);
+                }
+
+                const res = await fetch(url, options);
+                const text = await res.text();
+
+                // Try to format JSON
+                try {
+                    const json = JSON.parse(text);
+                    responseArea.innerText = JSON.stringify(json, null, 2);
+                } catch {
+                    responseArea.innerText = text;
+                }
+
+            } catch (err) {
+                responseArea.innerText = '❌ Network Error: ' + err.message;
+            }
+        }
+    </script>
+
+</body>
+
+</html>

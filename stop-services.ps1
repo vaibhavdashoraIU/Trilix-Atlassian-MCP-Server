@@ -1,27 +1,26 @@
-# Stop all Trilix Atlassian MCP Server services
+$ErrorActionPreference = "SilentlyContinue"
 
-Write-Host "Stopping Trilix Atlassian MCP Server services..." -ForegroundColor Cyan
-Write-Host ""
+Write-Host "🛑 Stopping Trilix Services..." -ForegroundColor Yellow
 
-# Find and stop Go processes running main.go
-$processes = Get-Process | Where-Object {
-    $_.ProcessName -eq "go" -and 
-    (Get-WmiObject Win32_Process -Filter "ProcessId = $($_.Id)").CommandLine -like "*main.go*"
+# Kill process on port 3000
+Write-Host "🧹 Cleaning up port 3000..." -ForegroundColor Yellow
+
+$tcp = Get-NetTCPConnection -LocalPort 3000
+if ($tcp) {
+    Stop-Process -Id $tcp.OwningProcess -Force
+    Write-Host "   Killed process on port 3000" -ForegroundColor Green
 }
 
-if ($processes.Count -eq 0) {
-    Write-Host "No running services found." -ForegroundColor Yellow
-    exit 0
+# Kill mcp-server.exe if running
+$proc = Get-Process -Name "mcp-server"
+if ($proc) {
+    Stop-Process -Name "mcp-server" -Force
+    Write-Host "   Killed mcp-server.exe" -ForegroundColor Green
 }
 
-Write-Host "Found $($processes.Count) service(s) to stop..." -ForegroundColor Yellow
+# Kill microservices (go run produces main.exe usually)
+Get-Process -Name "main" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "go" -ErrorAction SilentlyContinue | Stop-Process -Force
+Write-Host "   Killed Go processes" -ForegroundColor Green
 
-foreach ($process in $processes) {
-    Write-Host "Stopping process $($process.Id)..." -ForegroundColor Green
-    Stop-Process -Id $process.Id -Force
-}
-
-Start-Sleep -Seconds 1
-Write-Host ""
-Write-Host "All services stopped." -ForegroundColor Cyan
-
+Write-Host "✅ All services stopped." -ForegroundColor Green

@@ -3,7 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/providentiaww/trilix-atlassian-mcp/internal/cache"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
 )
@@ -11,12 +13,14 @@ import (
 // ManagementHandler handles workspace management tools
 type ManagementHandler struct {
 	credStore storage.CredentialStoreInterface
+	cache     *cache.SimpleCache
 }
 
 // NewManagementHandler creates a new management handler
 func NewManagementHandler(credStore storage.CredentialStoreInterface) *ManagementHandler {
 	return &ManagementHandler{
 		credStore: credStore,
+		cache:     cache.NewSimpleCache(),
 	}
 }
 
@@ -68,6 +72,19 @@ func (h *ManagementHandler) HandleTool(call mcp.ToolCall, userID string) (mcp.To
 }
 
 func (h *ManagementHandler) handleListWorkspaces(userID string) (mcp.ToolResult, error) {
+	// Check cache first
+	cacheKey := "workspaces:" + userID
+	if cached, found := h.cache.Get(cacheKey); found {
+		if resultJSON, ok := cached.(string); ok {
+			return mcp.ToolResult{
+				Content: []mcp.ContentBlock{
+					{Type: "text", Text: resultJSON},
+				},
+			}, nil
+		}
+	}
+
+	// Cache miss - fetch from storage
 	workspaces, err := h.credStore.ListWorkspaces(userID)
 	if err != nil {
 		return mcp.ToolResult{
@@ -80,10 +97,13 @@ func (h *ManagementHandler) handleListWorkspaces(userID string) (mcp.ToolResult,
 
 	resultJSON, _ := json.MarshalIndent(workspaces, "", "  ")
 
+	// Cache for 5 minutes
+	h.cache.Set(cacheKey, string(resultJSON), 5*time.Minute)
+
 	return mcp.ToolResult{
 		Content: []mcp.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
-		},
+			},
 	}, nil
 }
 
