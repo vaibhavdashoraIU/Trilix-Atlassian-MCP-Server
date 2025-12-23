@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 )
 
 // AuthMiddleware creates HTTP middleware for authentication
@@ -48,7 +49,34 @@ func (m *AuthMiddleware) Handler(next http.Handler) http.Handler {
 			return
 		}
 
-		// Verify token
+
+		// Check for Service Token (Static Trust)
+		serviceToken := os.Getenv("MCP_SERVICE_TOKEN")
+		if serviceToken != "" && token == serviceToken {
+			// Create a "Service" user context
+			// This is a PLACEHOLDER identity to satisfy the non-nil requirement of the context.
+			// It is effectively ignored because we check for "user_id" overrides below.
+			serviceUserCtx := &UserContext{
+				UserID: "service_account",
+				Email:  "service@mcp.system",
+			}
+
+			// Trusted Service Override: Extract user_id from query params or (if possible) the body
+			// to impersonate a specific Clerk user.
+			if injectedUser := r.URL.Query().Get("user_id"); injectedUser != "" {
+				serviceUserCtx.UserID = injectedUser
+				fmt.Printf("🔒 Service Override (Query): Using user_id=%s\n", injectedUser)
+			}
+			// Note: We don't parse the body here to avoid draining it for downstream handlers.
+			// Downstream handlers (like RestToolHandler) will also check the body.
+
+			ctx := context.WithValue(r.Context(), UserContextKey, serviceUserCtx)
+			ctx = context.WithValue(ctx, "IsServiceCall", true)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		// Verify Clerk token
 		userCtx, err := m.clerkAuth.VerifyToken(token)
 		if err != nil {
 			if !m.optional {

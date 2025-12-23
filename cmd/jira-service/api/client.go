@@ -38,9 +38,19 @@ var sharedHTTPClient = &http.Client{
 
 // NewClient creates an authenticated Jira client
 func NewClient(creds WorkspaceCredentials, timeout time.Duration) *Client {
+	// Use a dedicated client if a specific timeout is requested, 
+	// otherwise use the shared one.
+	client := sharedHTTPClient
+	if timeout > 0 && timeout != sharedHTTPClient.Timeout {
+		client = &http.Client{
+			Timeout:   timeout,
+			Transport: sharedHTTPClient.Transport,
+		}
+	}
+
 	return &Client{
 		creds:      creds,
-		httpClient: sharedHTTPClient,
+		httpClient: client,
 	}
 }
 

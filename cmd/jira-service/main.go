@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -41,21 +43,43 @@ func init() {
 			}
 		}
 	}
-
-	// Initialize TwistyGo with service name
-	twistygo.LogStartService("JiraService", ServiceVersion)
-
-	// Connect to RabbitMQ (uses config.yaml)
-	rconn = twistygo.AmqpConnect()
-
-	// Load queue definitions from settings.yaml
-	rconn.AmqpLoadQueues("JiraRequests")
-
-	// Load service definitions
-	rconn.AmqpLoadServices("JiraService")
 }
 
 func main() {
+	// Initialize TwistyGo
+	twistygo.LogStartService("JiraService", ServiceVersion)
+
+	// Initialize RabbitMQ with retries
+	maxRetries := 5
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("panic: %v", r)
+				}
+			}()
+			rconn = twistygo.AmqpConnect()
+			if rconn != nil {
+				err = nil
+			}
+		}()
+		if err == nil && rconn != nil {
+			break
+		}
+		if i < maxRetries-1 {
+			fmt.Printf("⚠️ Failed to connect to RabbitMQ (attempt %d/%d): %v. Retrying in 5s...\n", i+1, maxRetries, err)
+			time.Sleep(5 * time.Second)
+		}
+	}
+	if rconn == nil {
+		panic(fmt.Sprintf("❌ Failed to connect to RabbitMQ after %d attempts: %v", maxRetries, err))
+	}
+
+	// Load queue and service definitions
+	rconn.AmqpLoadQueues("JiraRequests")
+	rconn.AmqpLoadServices("JiraService")
+
 	// Load custom config for timeout
 	var appConfig AppConfig
 	if configData, err := os.ReadFile("config.yaml"); err == nil {
@@ -68,10 +92,20 @@ func main() {
 		}
 	}
 
-	// Initialize credential store (file-based or database)
-	credStore, err := storage.NewCredentialStoreFromEnv()
+	// Initialize credential store (file-based or database) with retries
+	var credStore storage.CredentialStoreInterface
+	for i := 0; i < maxRetries; i++ {
+		credStore, err = storage.NewCredentialStoreFromEnv()
+		if err == nil {
+			break
+		}
+		if i < maxRetries-1 {
+			fmt.Printf("⚠️ Failed to initialize credential store (attempt %d/%d): %v. Retrying in 5s...\n", i+1, maxRetries, err)
+			time.Sleep(5 * time.Second)
+		}
+	}
 	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize credential store: %v", err))
+		panic(fmt.Sprintf("❌ Failed to initialize credential store after %d attempts: %v", maxRetries, err))
 	}
 	defer credStore.Close()
 
@@ -119,7 +153,35 @@ func main() {
 				if err != nil {
 					fmt.Printf("Error publishing reply: %v\n", err)
 				}
+
+				// Manually acknowledge the message after processing (since autoack is now false)
+				if err := delivery.Ack(false); err != nil {
+					fmt.Printf("Error acknowledging message: %v\n", err)
+				}
 			}(d)
+		}
+	}()
+
+	// Start a simple health check server for Kubernetes
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		if err := credStore.Ping(); err != nil {
+			http.Error(w, "Database down", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "OK")
+	})
+
+	healthSrv := &http.Server{
+		Addr:    ":8080",
+		Handler: healthMux,
+	}
+
+	go func() {
+		fmt.Println("🏥 Health check server running on :8080")
+		if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Printf("Health check server error: %v\n", err)
 		}
 	}()
 
@@ -129,5 +191,11 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
-	fmt.Println("Shutting down Jira Service...")
+	
+	fmt.Println("🛑 Shutting down Jira Service...")
+	
+	// Graceful shutdown for health server
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	healthSrv.Shutdown(ctx)
 }

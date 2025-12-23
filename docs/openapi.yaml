@@ -21,11 +21,15 @@ paths:
                 workspace_id:
                   type: string
                   description: The workspace ID to query
+                user_id:
+                  type: string
+                  description: The Clerk User ID for impersonation
                 limit:
                   type: integer
                   default: 50
               required:
                 - workspace_id
+                - user_id
       responses:
         "200":
           description: List of spaces
@@ -47,6 +51,9 @@ paths:
                 workspace_id:
                   type: string
                   description: The workspace ID to query
+                user_id:
+                  type: string
+                  description: The Clerk User ID for impersonation
                 query:
                   type: string
                   description: CQL search query
@@ -56,6 +63,7 @@ paths:
               required:
                 - workspace_id
                 - query
+                - user_id
       responses:
         "200":
           description: Search results
@@ -77,6 +85,9 @@ paths:
                 workspace_id:
                   type: string
                   description: The workspace ID to create the page in
+                user_id:
+                  type: string
+                  description: The Clerk User ID for impersonation
                 space_key:
                   type: string
                   description: The space key where the page will be created
@@ -94,6 +105,7 @@ paths:
                 - space_key
                 - title
                 - body
+                - user_id
       responses:
         "200":
           description: Created page details
@@ -115,8 +127,12 @@ paths:
                 workspace_id:
                   type: string
                   description: The workspace ID to query
+                user_id:
+                  type: string
+                  description: The Clerk User ID for impersonation
               required:
                 - workspace_id
+                - user_id
       responses:
         "200":
           description: List of projects
@@ -129,6 +145,13 @@ paths:
       operationId: listWorkspaces
       summary: List available connected workspaces
       description: Returns a list of workspaces the user has connected, including their IDs. Call this first to get workspace_id.
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The Clerk User ID for impersonation
       responses:
         "200":
           description: List of workspaces

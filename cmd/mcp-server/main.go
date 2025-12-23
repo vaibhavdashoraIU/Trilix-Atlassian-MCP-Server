@@ -15,13 +15,28 @@ import (
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"context"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"strconv"
+	"syscall"
+
+	"gopkg.in/yaml.v3"
 )
 
 const ServiceVersion = "v1.0.0"
 
 var rconn *twistygo.AmqpConnection_t
+
+type AppConfig struct {
+	Common struct {
+		App struct {
+			Port       int    `yaml:"port"`
+			RPCTimeout string `yaml:"rpc_timeout"`
+		} `yaml:"app"`
+	} `yaml:"common"`
+}
 
 func init() {
 	// Load environment variables FIRST from project root or current dir
@@ -39,18 +54,58 @@ func init() {
 			}
 		}
 	}
-
-	// Initialize TwistyGo
-	twistygo.LogStartService("MCPServer", ServiceVersion)
-	rconn = twistygo.AmqpConnect()
-	rconn.AmqpLoadQueues("ConfluenceRequests", "JiraRequests")
 }
 
 func main() {
-	// Initialize credential store (file-based or database)
-	credStore, err := storage.NewCredentialStoreFromEnv()
+	// Initialize TwistyGo logging
+	twistygo.LogStartService("MCPServer", ServiceVersion)
+
+	// Initialize RabbitMQ with retries
+	maxRetries := 5
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		// Capture panic from twistygo.AmqpConnect if it fails
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("panic: %v", r)
+				}
+			}()
+			rconn = twistygo.AmqpConnect()
+			if rconn != nil {
+				err = nil
+			}
+		}()
+
+		if err == nil && rconn != nil {
+			break
+		}
+
+		if i < maxRetries-1 {
+			fmt.Printf("⚠️ Failed to connect to RabbitMQ (attempt %d/%d): %v. Retrying in 5s...\n", i+1, maxRetries, err)
+			time.Sleep(5 * time.Second)
+		}
+	}
+
+	if rconn == nil {
+		panic(fmt.Sprintf("❌ Failed to connect to RabbitMQ after %d attempts: %v", maxRetries, err))
+	}
+	rconn.AmqpLoadQueues("ConfluenceRequests", "JiraRequests")
+
+	// Initialize credential store (file-based or database) with retries for K8s resilience
+	var credStore storage.CredentialStoreInterface
+	for i := 0; i < maxRetries; i++ {
+		credStore, err = storage.NewCredentialStoreFromEnv()
+		if err == nil {
+			break
+		}
+		if i < maxRetries-1 {
+			fmt.Printf("⚠️ Failed to initialize credential store (attempt %d/%d): %v. Retrying in 5s...\n", i+1, maxRetries, err)
+			time.Sleep(5 * time.Second)
+		}
+	}
 	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize credential store: %v", err))
+		panic(fmt.Sprintf("❌ Failed to initialize credential store after %d attempts: %v", maxRetries, err))
 	}
 	defer credStore.Close()
 
@@ -61,9 +116,33 @@ func main() {
 		fmt.Println("Running in development mode without authentication")
 	}
 
-	// Create service callers
-	confluenceCaller := createConfluenceCaller()
-	jiraCaller := createJiraCaller()
+	// Load custom config
+	var appConfig AppConfig
+	if configData, err := os.ReadFile("config.yaml"); err == nil {
+		yaml.Unmarshal(configData, &appConfig)
+	}
+	
+	port := appConfig.Common.App.Port
+	if port == 0 {
+		port = 3000
+	}
+	// Allow environment variable override for K8s
+	if portStr := os.Getenv("PORT"); portStr != "" {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			port = p
+		}
+	}
+
+	rpcTimeout := 35 * time.Second
+	if appConfig.Common.App.RPCTimeout != "" {
+		if d, err := time.ParseDuration(appConfig.Common.App.RPCTimeout); err == nil {
+			rpcTimeout = d
+		}
+	}
+
+	// Create service callers with configurable timeout
+	confluenceCaller := createConfluenceCaller(rpcTimeout)
+	jiraCaller := createJiraCaller(rpcTimeout)
 
 	// Create handlers
 	confluenceHandler := handlers.NewConfluenceHandler(confluenceCaller)
@@ -214,21 +293,79 @@ func main() {
 	mux.Handle("/sse", sseHandler)
 	mux.Handle("/message", http.HandlerFunc(sseServer.HandleMessage)) // Message posting usually uses same auth header
 
+	// Deep Health Check Endpoint (for Kubernetes)
+	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		status := "UP"
+		details := make(map[string]string)
+		code := http.StatusOK
+
+		// Check Database
+		if err := credStore.Ping(); err != nil {
+			status = "DOWN"
+			details["database"] = fmt.Sprintf("DOWN: %v", err)
+			code = http.StatusServiceUnavailable
+		} else {
+			details["database"] = "UP"
+		}
+
+		// Check RabbitMQ (TwistyGo)
+		// We use a simple nil check here as twistygo handles the internal connection state.
+		if rconn != nil {
+			details["rabbitmq"] = "UP"
+		} else {
+			status = "DOWN"
+			details["rabbitmq"] = "DOWN"
+			code = http.StatusServiceUnavailable
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  status,
+			"details": details,
+			"version": ServiceVersion,
+		})
+	})
+
 	// Apply CORS to everything
 	handlerWithCors := corsMiddleware(mux)
 
-	// Start Single Server
-	port := 3000
-	fmt.Printf("🚀 Starting Unified Trilix Server on port %d...\n", port)
-	fmt.Printf("   - Dashboard:    http://localhost:%d/\n", port)
-	fmt.Printf("   - Test Client:  http://localhost:%d/docs/test-client.html\n", port)
-	fmt.Printf("   - Workspaces:   http://localhost:%d/workspaces.html\n", port)
-	fmt.Printf("   - API:          http://localhost:%d/api/workspaces\n", port)
-	fmt.Printf("   - SSE:          http://localhost:%d/sse\n", port)
-	
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), handlerWithCors); err != nil {
-		panic(fmt.Sprintf("Failed to start server: %v", err))
+	// Setup Server
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: handlerWithCors,
 	}
+
+	// 4. Handle Graceful Shutdown (SIGTERM/SIGINT)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		fmt.Printf("🚀 Starting Unified Trilix Server on port %d...\n", port)
+		fmt.Printf("   - Dashboard:    http://localhost:%d/\n", port)
+		fmt.Printf("   - Health:       http://localhost:%d/api/health\n", port)
+		fmt.Printf("   - Test Client:  http://localhost:%d/docs/test-client.html\n", port)
+		fmt.Printf("   - Workspaces:   http://localhost:%d/workspaces.html\n", port)
+		fmt.Printf("   - API List:     http://localhost:%d/api/workspaces\n", port)
+		
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			panic(fmt.Sprintf("❌ Failed to start server: %v", err))
+		}
+	}()
+
+	// Wait for termination signal
+	<-stop
+	fmt.Println("\n🛑 Shutting down server...")
+
+	// Create a timeout context for shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		fmt.Printf("❌ Server forced to shutdown: %v\n", err)
+	}
+
+	fmt.Println("👋 Server exited gracefully")
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
@@ -277,7 +414,7 @@ func cloneServiceQueue(src *twistygo.ServiceQueue_t) *twistygo.ServiceQueue_t {
 	return &dst
 }
 
-func createConfluenceCaller() func(models.ConfluenceRequest) (*models.ConfluenceResponse, error) {
+func createConfluenceCaller(rpcTimeout time.Duration) func(models.ConfluenceRequest) (*models.ConfluenceResponse, error) {
 	return func(req models.ConfluenceRequest) (*models.ConfluenceResponse, error) {
 		// Connect to ConfluenceRequests queue
 		sqGlobal := rconn.AmqpConnectQueue("ConfluenceRequests")
@@ -314,8 +451,8 @@ func createConfluenceCaller() func(models.ConfluenceRequest) (*models.Confluence
 				return nil, res.err
 			}
 			responseBytes = res.resp
-		case <-time.After(35 * time.Second): // Slightly longer than API timeout (30s)
-			return nil, fmt.Errorf("RPC timeout: confluence service did not respond within 35s")
+		case <-time.After(rpcTimeout):
+			return nil, fmt.Errorf("RPC timeout: confluence service did not respond within %v", rpcTimeout)
 		}
 
 		// Debug log raw response to aid troubleshooting unexpected payload shapes
@@ -331,7 +468,7 @@ func createConfluenceCaller() func(models.ConfluenceRequest) (*models.Confluence
 	}
 }
 
-func createJiraCaller() func(models.JiraRequest) (*models.JiraResponse, error) {
+func createJiraCaller(rpcTimeout time.Duration) func(models.JiraRequest) (*models.JiraResponse, error) {
 	return func(req models.JiraRequest) (*models.JiraResponse, error) {
 		// Connect to JiraRequests queue
 		sqGlobal := rconn.AmqpConnectQueue("JiraRequests")
@@ -368,8 +505,8 @@ func createJiraCaller() func(models.JiraRequest) (*models.JiraResponse, error) {
 				return nil, res.err
 			}
 			responseBytes = res.resp
-		case <-time.After(35 * time.Second): // Slightly longer than API timeout (30s)
-			return nil, fmt.Errorf("RPC timeout: jira service did not respond within 35s")
+		case <-time.After(rpcTimeout):
+			return nil, fmt.Errorf("RPC timeout: jira service did not respond within %v", rpcTimeout)
 		}
 
 		// Unmarshal response
