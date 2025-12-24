@@ -49,9 +49,6 @@ kind: Service
 metadata:
   name: mcp-server
   namespace: trilix
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"  # Network Load Balancer
-    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
 spec:
   selector:
     app: mcp-server
@@ -59,4 +56,4 @@ spec:
   - port: 80
     targetPort: 3000
     protocol: TCP
-  type: LoadBalancer  # Creates AWS ELB
+  type: NodePort

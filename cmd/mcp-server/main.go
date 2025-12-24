@@ -126,12 +126,21 @@ func main() {
 	if port == 0 {
 		port = 3000
 	}
-	// Allow environment variable override for K8s
-	if portStr := os.Getenv("PORT"); portStr != "" {
-		if p, err := strconv.Atoi(portStr); err == nil {
+	
+	// Prioritize MCP_SERVER_PORT from ConfigMap, fallback to PORT
+	portSource := "config.yaml"
+	if pStr := os.Getenv("MCP_SERVER_PORT"); pStr != "" {
+		if p, err := strconv.Atoi(pStr); err == nil {
 			port = p
+			portSource = "MCP_SERVER_PORT"
+		}
+	} else if pStr := os.Getenv("PORT"); pStr != "" {
+		if p, err := strconv.Atoi(pStr); err == nil {
+			port = p
+			portSource = "PORT"
 		}
 	}
+	fmt.Printf("ℹ️ Server using port %d (source: %s)\n", port, portSource)
 
 	rpcTimeout := 35 * time.Second
 	if appConfig.Common.App.RPCTimeout != "" {

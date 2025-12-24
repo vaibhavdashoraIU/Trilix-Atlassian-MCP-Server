@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcp-ingress
+  namespace: trilix
+  annotations:
+    # ALB configuration
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    
+    # Explicitly use Public Subnets (verified via Route Table rtb-01f464c346c7bd9c5)
+    alb.ingress.kubernetes.io/subnets: subnet-0b7c5af7456da6a0a, subnet-05ac8ebb63da45c48
+    
+    # Inbound traffic (allow all for testing)
+    alb.ingress.kubernetes.io/inbound-cidrs: 0.0.0.0/0
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/success-codes: '200'
+
+    # --- HTTPS / SSL CONFIGURATION ---
+    # 1. Request a certificate in AWS ACM (us-east-1)
+    # 2. Paste the ARN below and uncomment these lines:
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    # alb.ingress.kubernetes.io/certificate-arn: YOUR_ACM_ARN_HERE
+    # alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Default non-SSL config (Comment this out once SSL is enabled above)
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-server
+                port:
+                  number: 80
