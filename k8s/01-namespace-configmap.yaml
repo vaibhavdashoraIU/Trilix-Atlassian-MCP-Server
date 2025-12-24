@@ -17,9 +17,9 @@ data:
   RABBITMQ_VHOST: "trilix"
   
   # PostgreSQL connection
-  POSTGRES_HOST: "postgres.trilix.svc.cluster.local"
+  POSTGRES_HOST: "aws-1-eu-west-1.pooler.supabase.com"
   POSTGRES_PORT: "5432"
-  POSTGRES_DB: "trilix_mcp"
+  POSTGRES_DB: "postgres"
   
   # Service ports
   MCP_SERVER_PORT: "3000"
