@@ -143,7 +143,7 @@ func (h *WorkspaceHandler) HandleListWorkspaces(w http.ResponseWriter, r *http.R
 	}
 
 	// Convert to response format (without tokens)
-	var responses []WorkspaceResponse
+	responses := []WorkspaceResponse{}
 	for _, ws := range workspaces {
 		responses = append(responses, WorkspaceResponse{
 			WorkspaceID:   ws.WorkspaceID,

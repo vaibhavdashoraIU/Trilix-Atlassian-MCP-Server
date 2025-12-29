@@ -69,10 +69,11 @@ type IssueType struct {
 
 // SearchResponse represents Jira search results
 type SearchResponse struct {
-	StartAt    int         `json:"startAt"`
-	MaxResults int         `json:"maxResults"`
-	Total      int         `json:"total"`
-	Issues     []JiraIssue `json:"issues"`
+	StartAt       int         `json:"startAt"`
+	MaxResults    int         `json:"maxResults"`
+	Total         int         `json:"total"`
+	NextPageToken string      `json:"nextPageToken,omitempty"`
+	Issues        []JiraIssue `json:"issues"`
 }
 
 // CreateIssueRequest represents a request to create an issue

@@ -146,6 +146,158 @@ func (h *ConfluenceHandler) ListTools() []mcp.Tool {
 				"required": []string{"workspace_id"},
 			},
 		},
+		{
+			Name:        "confluence_update_page",
+			Description: "Update an existing Confluence page",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"page_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Page ID to update",
+					},
+					"title": map[string]interface{}{
+						"type":        "string",
+						"description": "New page title (optional)",
+					},
+					"body": map[string]interface{}{
+						"type":        "string",
+						"description": "New page body content (storage format)",
+					},
+				},
+				"required": []string{"workspace_id", "page_id", "body"},
+			},
+		},
+		{
+			Name:        "confluence_delete_page",
+			Description: "Delete a Confluence page",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"page_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Page ID to delete",
+					},
+				},
+				"required": []string{"workspace_id", "page_id"},
+			},
+		},
+		{
+			Name:        "confluence_get_page_children",
+			Description: "Get child pages of a Confluence page",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"page_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Parent page ID",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Maximum number of results",
+						"default":     25,
+					},
+				},
+				"required": []string{"workspace_id", "page_id"},
+			},
+		},
+		{
+			Name:        "confluence_add_comment",
+			Description: "Add a comment to a Confluence page",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"page_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Page ID to comment on",
+					},
+					"body": map[string]interface{}{
+						"type":        "string",
+						"description": "Comment body (storage format)",
+					},
+				},
+				"required": []string{"workspace_id", "page_id", "body"},
+			},
+		},
+		{
+			Name:        "confluence_get_comments",
+			Description: "Get comments for a Confluence page",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"page_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Page ID",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Maximum number of results",
+						"default":     25,
+					},
+				},
+				"required": []string{"workspace_id", "page_id"},
+			},
+		},
+		{
+			Name:        "confluence_add_label",
+			Description: "Add a label to a Confluence page",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"page_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Page ID",
+					},
+					"label": map[string]interface{}{
+						"type":        "string",
+						"description": "Label name to add",
+					},
+				},
+				"required": []string{"workspace_id", "page_id", "label"},
+			},
+		},
+		{
+			Name:        "confluence_get_labels",
+			Description: "Get labels for a Confluence page",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"page_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Page ID",
+					},
+				},
+				"required": []string{"workspace_id", "page_id"},
+			},
+		},
 	}
 }
 
@@ -214,6 +366,20 @@ func getActionFromToolName(toolName string) string {
 		return "copy_page"
 	case "confluence_list_spaces":
 		return "list_spaces"
+	case "confluence_update_page":
+		return "update_page"
+	case "confluence_delete_page":
+		return "delete_page"
+	case "confluence_get_page_children":
+		return "get_page_children"
+	case "confluence_add_comment":
+		return "add_comment"
+	case "confluence_get_comments":
+		return "get_comments"
+	case "confluence_add_label":
+		return "add_label"
+	case "confluence_get_labels":
+		return "get_labels"
 	default:
 		return ""
 	}
