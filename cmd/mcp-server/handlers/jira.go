@@ -473,6 +473,100 @@ func (h *JiraHandler) ListTools() []mcp.Tool {
 				"required": []string{"workspace_id", "project_key"},
 			},
 		},
+		{
+			Name:        "jira_search_users",
+			Description: "Search for Jira users by name or email",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "User name or email to search for",
+					},
+				},
+				"required": []string{"workspace_id", "query"},
+			},
+		},
+		{
+			Name:        "jira_get_user_profile",
+			Description: "Get detailed profile information about a Jira user",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"account_id": map[string]interface{}{
+						"type":        "string",
+						"description": "User account ID",
+					},
+				},
+				"required": []string{"workspace_id", "account_id"},
+			},
+		},
+		{
+			Name:        "jira_search_fields",
+			Description: "List all available fields in the Jira workspace",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+				},
+				"required": []string{"workspace_id"},
+			},
+		},
+		{
+			Name:        "jira_create_issue_link",
+			Description: "Create a link between two Jira issues (e.g., 'Blocks', 'Relates to')",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"type": map[string]interface{}{
+						"type":        "string",
+						"description": "Link type name (e.g., 'Blocks', 'Relates', 'Duplicate')",
+					},
+					"inward_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Key of the inward issue",
+					},
+					"outward_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Key of the outward issue",
+					},
+				},
+				"required": []string{"workspace_id", "type", "inward_key", "outward_key"},
+			},
+		},
+		{
+			Name:        "jira_remove_issue_link",
+			Description: "Remove an existing link between Jira issues",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"link_id": map[string]interface{}{
+						"type":        "string",
+						"description": "ID of the issue link to remove",
+					},
+				},
+				"required": []string{"workspace_id", "link_id"},
+			},
+		},
 	}
 }
 
@@ -569,6 +663,16 @@ func getJiraActionFromToolName(toolName string) string {
 		return "get_project_issues"
 	case "jira_get_project_versions":
 		return "get_project_versions"
+	case "jira_search_users":
+		return "search_users"
+	case "jira_get_user_profile":
+		return "get_user_profile"
+	case "jira_search_fields":
+		return "search_fields"
+	case "jira_create_issue_link":
+		return "create_issue_link"
+	case "jira_remove_issue_link":
+		return "remove_issue_link"
 	default:
 		return ""
 	}

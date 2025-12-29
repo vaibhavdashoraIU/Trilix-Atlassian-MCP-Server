@@ -1241,9 +1241,6 @@
                             <p class="workspace-url">${escapeHtml(workspace.siteUrl)}</p>
                         </div>
                         <div class="workspace-actions">
-                            <button class="btn-icon copy-btn" onclick="copyWorkspaceId('${workspace.workspaceId}')" title="Copy ID">
-                                📋
-                            </button>
                             <button class="btn-icon" onclick="editWorkspace('${workspace.workspaceId}')" title="Edit">
                                 ✎
                             </button>
@@ -1358,26 +1355,6 @@
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric',
-            });
-        }
-
-        function copyWorkspaceId(id) {
-            if (!id) return;
-            navigator.clipboard.writeText(id).then(() => {
-                showToast('Workspace ID copied to clipboard', 'success');
-            }).catch(err => {
-                console.error('Failed to copy ID:', err);
-                const textArea = document.createElement("textarea");
-                textArea.value = id;
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    showToast('Workspace ID copied to clipboard', 'success');
-                } catch (err) {
-                    showToast('Failed to copy ID', 'error');
-                }
-                document.body.removeChild(textArea);
             });
         }
 

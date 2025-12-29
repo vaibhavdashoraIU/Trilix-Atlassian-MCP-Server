@@ -193,6 +193,9 @@
             <button class="tool-btn" onclick="showForm('confluence_add_label')">Add Label</button>
             <button class="tool-btn" onclick="showForm('confluence_get_labels')">Get Labels</button>
             <button class="tool-btn" onclick="showForm('confluence_copy_page')">Copy Page</button>
+            <button class="tool-btn" onclick="showForm('confluence_search_user')">Search User</button>
+            <button class="tool-btn" onclick="showForm('confluence_get_space')">Get Space</button>
+            <button class="tool-btn" onclick="showForm('confluence_get_attachments')">Get Attachments</button>
 
             <div class="tool-category">Jira</div>
             <button class="tool-btn" onclick="showForm('jira_list_projects')">List Projects</button>
@@ -214,6 +217,11 @@
             <button class="tool-btn" onclick="showForm('jira_add_worklog')">Add Worklog</button>
             <button class="tool-btn" onclick="showForm('jira_get_project_issues')">Project Issues</button>
             <button class="tool-btn" onclick="showForm('jira_get_project_versions')">Project Versions</button>
+            <button class="tool-btn" onclick="showForm('jira_search_users')">Search Users</button>
+            <button class="tool-btn" onclick="showForm('jira_get_user_profile')">Get User Profile</button>
+            <button class="tool-btn" onclick="showForm('jira_create_issue_link')">Create Issue Link</button>
+            <button class="tool-btn" onclick="showForm('jira_remove_issue_link')">Remove Issue Link</button>
+            <button class="tool-btn" onclick="showForm('jira_search_fields')">Search Fields</button>
         </div>
 
         <div class="main">
@@ -380,6 +388,37 @@
                     { name: 'dst_parent_id', label: 'Dest Parent ID (Optional)', type: 'text' }
                 ],
                 endpoint: '/api/tools/confluence_copy_page',
+                method: 'POST'
+            },
+            confluence_search_user: {
+                title: "Confluence: Search User",
+                desc: "Search for Confluence users by name or email.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'query', label: 'User Query', type: 'text', placeholder: 'John Doe' }
+                ],
+                endpoint: '/api/tools/confluence_search_user',
+                method: 'POST'
+            },
+            confluence_get_space: {
+                title: "Confluence: Get Space",
+                desc: "Get details for a specific Confluence space.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'space_key', label: 'Space Key', type: 'text' }
+                ],
+                endpoint: '/api/tools/confluence_get_space',
+                method: 'POST'
+            },
+            confluence_get_attachments: {
+                title: "Confluence: Get Attachments",
+                desc: "List attachments for a Confluence page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 25 }
+                ],
+                endpoint: '/api/tools/confluence_get_attachments',
                 method: 'POST'
             },
             jira_list_projects: {
@@ -588,6 +627,57 @@
                     { name: 'project_key', label: 'Project Key', type: 'text' }
                 ],
                 endpoint: '/api/tools/jira_get_project_versions',
+                method: 'POST'
+            },
+            jira_search_users: {
+                title: "Jira: Search Users",
+                desc: "Search for Jira users by name or email.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'query', label: 'User Query', type: 'text', placeholder: 'John Doe' }
+                ],
+                endpoint: '/api/tools/jira_search_users',
+                method: 'POST'
+            },
+            jira_get_user_profile: {
+                title: "Jira: Get User Profile",
+                desc: "Get detailed profile information about a user.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'account_id', label: 'Account ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_get_user_profile',
+                method: 'POST'
+            },
+            jira_create_issue_link: {
+                title: "Jira: Create Issue Link",
+                desc: "Link two Jira issues together.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'type', label: 'Link Type', type: 'text', placeholder: 'Blocks' },
+                    { name: 'inward_key', label: 'Inward Issue Key', type: 'text', placeholder: 'PROJ-123' },
+                    { name: 'outward_key', label: 'Outward Issue Key', type: 'text', placeholder: 'PROJ-456' }
+                ],
+                endpoint: '/api/tools/jira_create_issue_link',
+                method: 'POST'
+            },
+            jira_remove_issue_link: {
+                title: "Jira: Remove Issue Link",
+                desc: "Remove an existing link between issues.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'link_id', label: 'Link ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_remove_issue_link',
+                method: 'POST'
+            },
+            jira_search_fields: {
+                title: "Jira: Search Fields",
+                desc: "List all available fields in the Jira workspace.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_search_fields',
                 method: 'POST'
             }
         };

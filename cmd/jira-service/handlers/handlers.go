@@ -91,6 +91,16 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		response = s.handleGetProjectIssues(client, req)
 	case "get_project_versions":
 		response = s.handleGetProjectVersions(client, req)
+	case "search_users":
+		response = s.handleSearchUsers(client, req)
+	case "get_user_profile":
+		response = s.handleGetUserProfile(client, req)
+	case "search_fields":
+		response = s.handleSearchFields(client, req)
+	case "create_issue_link":
+		response = s.handleCreateIssueLink(client, req)
+	case "remove_issue_link":
+		response = s.handleRemoveIssueLink(client, req)
 	default:
 		response = models.ErrorResponse(models.ErrCodeInvalidRequest,
 			fmt.Sprintf("unknown action: %s", req.Action), req.RequestID)
@@ -455,5 +465,80 @@ func (s *Service) handleGetProjectVersions(client *api.Client, req models.JiraRe
 	}
 
 	return models.SuccessResponse(versions, req.RequestID)
+}
+
+func (s *Service) handleSearchUsers(client *api.Client, req models.JiraRequest) map[string]interface{} {
+	query, ok := req.Params["query"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing query", req.RequestID)
+	}
+
+	users, err := client.SearchUsers(query)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(users, req.RequestID)
+}
+
+func (s *Service) handleGetUserProfile(client *api.Client, req models.JiraRequest) map[string]interface{} {
+	accountID, ok := req.Params["account_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing account_id", req.RequestID)
+	}
+
+	user, err := client.GetUserProfile(accountID)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(user, req.RequestID)
+}
+
+func (s *Service) handleSearchFields(client *api.Client, req models.JiraRequest) map[string]interface{} {
+	fields, err := client.SearchFields()
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(fields, req.RequestID)
+}
+
+func (s *Service) handleCreateIssueLink(client *api.Client, req models.JiraRequest) map[string]interface{} {
+	typeName, ok := req.Params["type"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing type", req.RequestID)
+	}
+
+	inwardKey, ok := req.Params["inward_key"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing inward_key", req.RequestID)
+	}
+
+	outwardKey, ok := req.Params["outward_key"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing outward_key", req.RequestID)
+	}
+
+	err := client.CreateIssueLink(typeName, inwardKey, outwardKey)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(map[string]interface{}{"success": true}, req.RequestID)
+}
+
+func (s *Service) handleRemoveIssueLink(client *api.Client, req models.JiraRequest) map[string]interface{} {
+	linkID, ok := req.Params["link_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing link_id", req.RequestID)
+	}
+
+	err := client.RemoveIssueLink(linkID)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(map[string]interface{}{"success": true}, req.RequestID)
 }
 

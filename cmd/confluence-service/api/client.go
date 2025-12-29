@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
@@ -534,3 +536,85 @@ func (c *Client) GetLabels(pageID string) ([]map[string]interface{}, error) {
 
 	return result.Results, nil
 }
+// SearchUser searches for users by name or email
+func (c *Client) SearchUser(query string) ([]models.ConfluenceUser, error) {
+	// Using the verified /rest/api/search/user endpoint which uses CQL
+	// Construct CQL to search by name, escaping quotes in query
+	safeQuery := strings.ReplaceAll(query, "\"", "\\\"")
+	cql := fmt.Sprintf("user.fullname ~ \"%s\"", safeQuery)
+	
+	// Ensure no double slashes if Site has a trailing slash
+	baseURL := strings.TrimSuffix(c.creds.Site, "/")
+	url := fmt.Sprintf("%s/rest/api/search/user?cql=%s", 
+		baseURL, url.QueryEscape(cql))
+
+	fmt.Printf("DEBUG: Confluence SearchUser URL: %s\n", url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("DEBUG: Confluence SearchUser Error Response: %s\n", string(body))
+		return nil, fmt.Errorf("failed to search user: %s", string(body))
+	}
+
+	fmt.Printf("DEBUG: Confluence SearchUser Success Response: %s\n", string(body))
+
+	var searchResp models.UserSearchResults
+	if err := json.Unmarshal(body, &searchResp); err != nil {
+		return nil, err
+	}
+
+	users := make([]models.ConfluenceUser, len(searchResp.Results))
+	for i, res := range searchResp.Results {
+		users[i] = res.User
+	}
+
+	return users, nil
+}
+
+// GetAttachments gets attachments for a page
+func (c *Client) GetAttachments(pageID string, limit int) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/content/%s/child/attachment?limit=%d",
+		c.creds.Site, pageID, limit)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get attachments: %s", string(body))
+	}
+
+	var result struct {
+		Results []map[string]interface{} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Results, nil
+}
+

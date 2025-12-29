@@ -298,6 +298,65 @@ func (h *ConfluenceHandler) ListTools() []mcp.Tool {
 				"required": []string{"workspace_id", "page_id"},
 			},
 		},
+		{
+			Name:        "confluence_search_user",
+			Description: "Search for Confluence users by name or email",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "User name or email to search for",
+					},
+				},
+				"required": []string{"workspace_id", "query"},
+			},
+		},
+		{
+			Name:        "confluence_get_space",
+			Description: "Get detailed information about a specific Confluence space",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"space_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Space key",
+					},
+				},
+				"required": []string{"workspace_id", "space_key"},
+			},
+		},
+		{
+			Name:        "confluence_get_attachments",
+			Description: "Get attachments for a specific Confluence page",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"page_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Page ID",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Maximum number of results",
+						"default":     25,
+					},
+				},
+				"required": []string{"workspace_id", "page_id"},
+			},
+		},
 	}
 }
 
@@ -380,6 +439,12 @@ func getActionFromToolName(toolName string) string {
 		return "add_label"
 	case "confluence_get_labels":
 		return "get_labels"
+	case "confluence_search_user":
+		return "search_user"
+	case "confluence_get_space":
+		return "get_space"
+	case "confluence_get_attachments":
+		return "get_attachments"
 	default:
 		return ""
 	}

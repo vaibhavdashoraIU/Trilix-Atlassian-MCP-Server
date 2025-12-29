@@ -282,10 +282,10 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/GenericResponse" }
 
-  /api/tools/confluence_get_labels:
+  /api/tools/confluence_search_user:
     post:
-      operationId: confluenceGetLabels
-      summary: Get page labels
+      operationId: confluenceSearchUser
+      summary: Search Confluence users
       requestBody:
         required: true
         content:
@@ -294,12 +294,12 @@ paths:
               type: object
               properties:
                 workspace_id: { type: string }
-                page_id: { type: string }
+                query: { type: string }
                 user_id: { type: string }
-              required: [workspace_id, page_id, user_id]
+              required: [workspace_id, query, user_id]
       responses:
         "200":
-          description: List of labels
+          description: List of users
           content:
             application/json:
               schema: { $ref: "#/components/schemas/GenericResponse" }
@@ -630,10 +630,10 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/GenericResponse" }
 
-  /api/tools/jira_get_worklog:
+  /api/tools/jira_search_users:
     post:
-      operationId: jiraGetWorklog
-      summary: Get issue worklog
+      operationId: jiraSearchUsers
+      summary: Search Jira users
       requestBody:
         required: true
         content:
@@ -642,20 +642,20 @@ paths:
               type: object
               properties:
                 workspace_id: { type: string }
-                issue_key: { type: string }
+                query: { type: string }
                 user_id: { type: string }
-              required: [workspace_id, issue_key, user_id]
+              required: [workspace_id, query, user_id]
       responses:
         "200":
-          description: List of worklogs
+          description: List of users
           content:
             application/json:
               schema: { $ref: "#/components/schemas/GenericResponse" }
 
-  /api/tools/jira_add_worklog:
+  /api/tools/jira_create_issue_link:
     post:
-      operationId: jiraAddWorklog
-      summary: Add worklog entry
+      operationId: jiraCreateIssueLink
+      summary: Link two Jira issues
       requestBody:
         required: true
         content:
@@ -664,22 +664,22 @@ paths:
               type: object
               properties:
                 workspace_id: { type: string }
-                issue_key: { type: string }
-                time_spent: { type: string }
-                comment: { type: string }
+                type: { type: string, description: "Link type, e.g., 'Blocks', 'Relates'" }
+                inward_key: { type: string }
+                outward_key: { type: string }
                 user_id: { type: string }
-              required: [workspace_id, issue_key, time_spent, user_id]
+              required: [workspace_id, type, inward_key, outward_key, user_id]
       responses:
         "200":
-          description: Worklog details
+          description: Success
           content:
             application/json:
               schema: { $ref: "#/components/schemas/GenericResponse" }
 
-  /api/tools/jira_get_project_versions:
+  /api/tools/jira_get_user_profile:
     post:
-      operationId: jiraGetProjectVersions
-      summary: Get project versions
+      operationId: jiraGetUserProfile
+      summary: Get user profile info
       requestBody:
         required: true
         content:
@@ -688,12 +688,12 @@ paths:
               type: object
               properties:
                 workspace_id: { type: string }
-                project_key: { type: string }
+                account_id: { type: string }
                 user_id: { type: string }
-              required: [workspace_id, project_key, user_id]
+              required: [workspace_id, account_id, user_id]
       responses:
         "200":
-          description: List of versions
+          description: User profile
           content:
             application/json:
               schema: { $ref: "#/components/schemas/GenericResponse" }

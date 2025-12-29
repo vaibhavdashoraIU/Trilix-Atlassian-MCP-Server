@@ -91,6 +91,10 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		response = s.handleAddLabel(client, req)
 	case "get_labels":
 		response = s.handleGetLabels(client, req)
+	case "search_user":
+		response = s.handleSearchUser(client, req)
+	case "get_attachments":
+		response = s.handleGetAttachments(client, req)
 	default:
 		response = models.ErrorResponse(models.ErrCodeInvalidRequest,
 			fmt.Sprintf("unknown action: %s", req.Action), req.RequestID)
@@ -407,5 +411,38 @@ func (s *Service) handleGetLabels(client *api.Client, req models.ConfluenceReque
 	}
 
 	return models.SuccessResponse(labels, req.RequestID)
+}
+
+func (s *Service) handleSearchUser(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	query, ok := req.Params["query"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing query", req.RequestID)
+	}
+
+	users, err := client.SearchUser(query)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(users, req.RequestID)
+}
+
+func (s *Service) handleGetAttachments(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	limit := 25
+	if l, ok := req.Params["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	attachments, err := client.GetAttachments(pageID, limit)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(attachments, req.RequestID)
 }
 
