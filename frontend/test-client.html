@@ -239,8 +239,8 @@
 
     <!-- Clerk -->
     <script async crossorigin="anonymous"
-        data-clerk-publishable-key="pk_test_Zmx5aW5nLWtvYWxhLTEwLmNsZXJrLmFjY291bnRzLmRldiQ"
-        src="https://flying-koala-10.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        data-clerk-publishable-key="pk_test_ZGl2aW5lLWdyb3VwZXItOTIuY2xlcmsuYWNjb3VudHMuZGV2JA"
+        src="https://divine-grouper-92.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
         type="text/javascript"></script>
 
     <script>
@@ -702,7 +702,7 @@
                     if (user) {
                         // Mount the User Button (Avatar + Sign Out)
                         authStatus.innerHTML = ''; // Clear "Checking Auth..."
-                        window.Clerk.mountUserButton(authStatus);
+                        window.Clerk.mountUserButton(authStatus, { afterSignOutUrl: '/' });
 
                         // Get the long-lived token if available
                         try {

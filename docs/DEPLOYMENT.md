@@ -60,7 +60,9 @@ readinessProbe:
 **Fix**: Ensure `k8s/02-secrets.yaml` has `API_KEY_ENCRYPTION_KEY` (not just `ENCRYPTION_KEY`).
 ```bash
 kubectl apply -f k8s/02-secrets.yaml
-kubectl rollout restart deployment confluence-service jira-service -n trilix
+kubectl rollout restart deployment confluence-service jira-service mcp-server -n trilix
+
+kubectl rollout restart statefulset rabbitmq postgres -n trilix
 ```
 
 ### 🛑 `ImagePullBackOff` / `no match for platform`
@@ -86,3 +88,18 @@ AWS_PROFILE=AdministratorAccess-996894428841 ./build-and-push.sh ...
 - **`deploy.sh`**: Helper to apply/delete Kubernetes manifests.
 - **`k8s/`**: Contains all Deployment, Service, StatefulSet, and ConfigMap files.
 - **`Dockerfile`**: Unified Dockerfile for all 3 services (uses `build-arg SERVICE=...`).
+
+<!-- Straight forward STEPS to deploy after any changes-->
+
+- `./build-and-push.sh 996894428841`
+
+- `kubectl apply -f k8s`
+
+- `kubectl rollout restart deployment confluence-service jira-service mcp-server -n trilix`
+
+- `kubectl rollout restart statefulset rabbitmq postgres -n trilix`
+
+- `./deploy.sh status`
+
+- Changes now should reflect on -> `https://trilix-eso.aws.providentiaworldwide.com/`
+
