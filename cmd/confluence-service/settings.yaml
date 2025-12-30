@@ -16,7 +16,7 @@ queues:
       name: trilix.atlassian
     queue:
       name: confluence.requests
-      autoack: true
+      autoack: false
     routingkey: confluence.rpc
     protocol: json
 

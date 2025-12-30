@@ -146,3 +146,27 @@ type SearchResults struct {
 	Start   int              `json:"start"`
 }
 
+// UserSearchMatch represents a single match in Confluence user search
+type UserSearchMatch struct {
+	User ConfluenceUser `json:"user"`
+}
+
+// UserSearchResults represents Confluence user search results
+type UserSearchResults struct {
+	Results []UserSearchMatch `json:"results"`
+	Size    int               `json:"size"`
+	Limit   int               `json:"limit"`
+	Start   int               `json:"start"`
+}
+
+// ConfluenceUser represents a Confluence user
+type ConfluenceUser struct {
+	Type           string `json:"type"`
+	AccountID      string `json:"accountId"`
+	AccountType    string `json:"accountType"`
+	Email          string `json:"email,omitempty"`
+	PublicName     string `json:"publicName,omitempty"`
+	DisplayName    string `json:"displayName,omitempty"`
+	TimeZone       string `json:"timeZone,omitempty"`
+	IsExternalUser bool   `json:"isExternalUser,omitempty"`
+}

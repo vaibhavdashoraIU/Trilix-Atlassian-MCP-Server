@@ -70,6 +70,16 @@ func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Trusted Service Override: Extract user_id from arguments if authenticated via Service Token
+	if isService, ok := r.Context().Value("IsServiceCall").(bool); ok && isService {
+		if injectedUser, ok := arguments["user_id"].(string); ok && injectedUser != "" {
+			fmt.Printf("🔒 Service Override: Using user_id=%s from input\n", injectedUser)
+			userID = injectedUser
+			// Clean up arguments to avoid passing user_id to the actual tool if not needed
+			// But for now, keeping it is harmless as tools ignore unknown args
+		}
+	}
+
 	call := mcp.ToolCall{
 		Name:      toolName,
 		Arguments: arguments,

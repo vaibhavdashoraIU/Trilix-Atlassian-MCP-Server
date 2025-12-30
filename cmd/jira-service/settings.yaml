@@ -16,7 +16,7 @@ queues:
       name: trilix.atlassian
     queue:
       name: jira.requests
-      autoack: true
+      autoack: false
     routingkey: jira.rpc
     protocol: json
 

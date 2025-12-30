@@ -194,6 +194,379 @@ func (h *JiraHandler) ListTools() []mcp.Tool {
 				"required": []string{"workspace_id", "issue_key", "transition_id"},
 			},
 		},
+		{
+			Name:        "jira_get_agile_boards",
+			Description: "List all agile boards in a workspace",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"project_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Optional project key to filter boards",
+					},
+					"type": map[string]interface{}{
+						"type":        "string",
+						"description": "Board type filter (scrum, kanban, simple)",
+					},
+				},
+				"required": []string{"workspace_id"},
+			},
+		},
+		{
+			Name:        "jira_get_board_issues",
+			Description: "Get issues on a specific agile board",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"board_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Board ID",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Maximum number of results",
+						"default":     50,
+					},
+				},
+				"required": []string{"workspace_id", "board_id"},
+			},
+		},
+		{
+			Name:        "jira_get_sprints_from_board",
+			Description: "List sprints for a specific board",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"board_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Board ID",
+					},
+					"state": map[string]interface{}{
+						"type":        "string",
+						"description": "Sprint state filter (active, future, closed)",
+					},
+				},
+				"required": []string{"workspace_id", "board_id"},
+			},
+		},
+		{
+			Name:        "jira_get_sprint_issues",
+			Description: "Get issues in a specific sprint",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"sprint_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Sprint ID",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Maximum number of results",
+						"default":     50,
+					},
+				},
+				"required": []string{"workspace_id", "sprint_id"},
+			},
+		},
+		{
+			Name:        "jira_create_sprint",
+			Description: "Create a new sprint on a board",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"board_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Board ID",
+					},
+					"name": map[string]interface{}{
+						"type":        "string",
+						"description": "Sprint name",
+					},
+					"start_date": map[string]interface{}{
+						"type":        "string",
+						"description": "Start date (ISO 8601 format)",
+					},
+					"end_date": map[string]interface{}{
+						"type":        "string",
+						"description": "End date (ISO 8601 format)",
+					},
+				},
+				"required": []string{"workspace_id", "board_id", "name"},
+			},
+		},
+		{
+			Name:        "jira_update_sprint",
+			Description: "Update an existing sprint",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"sprint_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Sprint ID",
+					},
+					"name": map[string]interface{}{
+						"type":        "string",
+						"description": "Sprint name",
+					},
+					"state": map[string]interface{}{
+						"type":        "string",
+						"description": "Sprint state (active, closed)",
+					},
+					"start_date": map[string]interface{}{
+						"type":        "string",
+						"description": "Start date (ISO 8601 format)",
+					},
+					"end_date": map[string]interface{}{
+						"type":        "string",
+						"description": "End date (ISO 8601 format)",
+					},
+				},
+				"required": []string{"workspace_id", "sprint_id"},
+			},
+		},
+		{
+			Name:        "jira_get_worklog",
+			Description: "Get worklog (time tracking) entries for an issue",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"issue_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Issue key",
+					},
+				},
+				"required": []string{"workspace_id", "issue_key"},
+			},
+		},
+		{
+			Name:        "jira_add_worklog",
+			Description: "Add a worklog (time tracking) entry to an issue",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"issue_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Issue key",
+					},
+					"time_spent": map[string]interface{}{
+						"type":        "string",
+						"description": "Time spent (e.g., '3h 30m', '2d', '1w 2d 3h')",
+					},
+					"comment": map[string]interface{}{
+						"type":        "string",
+						"description": "Optional comment for the worklog entry",
+					},
+					"started": map[string]interface{}{
+						"type":        "string",
+						"description": "Optional start time (ISO 8601 format)",
+					},
+				},
+				"required": []string{"workspace_id", "issue_key", "time_spent"},
+			},
+		},
+		{
+			Name:        "jira_get_transitions",
+			Description: "Get available transitions for an issue",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"issue_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Issue key",
+					},
+				},
+				"required": []string{"workspace_id", "issue_key"},
+			},
+		},
+		{
+			Name:        "jira_delete_issue",
+			Description: "Delete an issue",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"issue_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Issue key to delete",
+					},
+				},
+				"required": []string{"workspace_id", "issue_key"},
+			},
+		},
+		{
+			Name:        "jira_get_project_issues",
+			Description: "Get all issues in a project",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"project_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Project key",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Maximum number of results",
+						"default":     100,
+					},
+				},
+				"required": []string{"workspace_id", "project_key"},
+			},
+		},
+		{
+			Name:        "jira_get_project_versions",
+			Description: "List versions for a project",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"project_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Project key",
+					},
+				},
+				"required": []string{"workspace_id", "project_key"},
+			},
+		},
+		{
+			Name:        "jira_search_users",
+			Description: "Search for Jira users by name or email",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "User name or email to search for",
+					},
+				},
+				"required": []string{"workspace_id", "query"},
+			},
+		},
+		{
+			Name:        "jira_get_user_profile",
+			Description: "Get detailed profile information about a Jira user",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"account_id": map[string]interface{}{
+						"type":        "string",
+						"description": "User account ID",
+					},
+				},
+				"required": []string{"workspace_id", "account_id"},
+			},
+		},
+		{
+			Name:        "jira_search_fields",
+			Description: "List all available fields in the Jira workspace",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+				},
+				"required": []string{"workspace_id"},
+			},
+		},
+		{
+			Name:        "jira_create_issue_link",
+			Description: "Create a link between two Jira issues (e.g., 'Blocks', 'Relates to')",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"type": map[string]interface{}{
+						"type":        "string",
+						"description": "Link type name (e.g., 'Blocks', 'Relates', 'Duplicate')",
+					},
+					"inward_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Key of the inward issue",
+					},
+					"outward_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Key of the outward issue",
+					},
+				},
+				"required": []string{"workspace_id", "type", "inward_key", "outward_key"},
+			},
+		},
+		{
+			Name:        "jira_remove_issue_link",
+			Description: "Remove an existing link between Jira issues",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workspace_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Workspace ID",
+					},
+					"link_id": map[string]interface{}{
+						"type":        "string",
+						"description": "ID of the issue link to remove",
+					},
+				},
+				"required": []string{"workspace_id", "link_id"},
+			},
+		},
 	}
 }
 
@@ -266,6 +639,40 @@ func getJiraActionFromToolName(toolName string) string {
 		return "add_comment"
 	case "jira_transition_issue":
 		return "transition_issue"
+	case "jira_get_agile_boards":
+		return "get_agile_boards"
+	case "jira_get_board_issues":
+		return "get_board_issues"
+	case "jira_get_sprints_from_board":
+		return "get_sprints_from_board"
+	case "jira_get_sprint_issues":
+		return "get_sprint_issues"
+	case "jira_create_sprint":
+		return "create_sprint"
+	case "jira_update_sprint":
+		return "update_sprint"
+	case "jira_get_worklog":
+		return "get_worklog"
+	case "jira_add_worklog":
+		return "add_worklog"
+	case "jira_get_transitions":
+		return "get_transitions"
+	case "jira_delete_issue":
+		return "delete_issue"
+	case "jira_get_project_issues":
+		return "get_project_issues"
+	case "jira_get_project_versions":
+		return "get_project_versions"
+	case "jira_search_users":
+		return "search_users"
+	case "jira_get_user_profile":
+		return "get_user_profile"
+	case "jira_search_fields":
+		return "search_fields"
+	case "jira_create_issue_link":
+		return "create_issue_link"
+	case "jira_remove_issue_link":
+		return "remove_issue_link"
 	default:
 		return ""
 	}

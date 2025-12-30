@@ -69,6 +69,10 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		response = s.handleGetPage(client, req)
 	case "create_page":
 		response = s.handleCreatePage(client, req)
+	case "update_page":
+		response = s.handleUpdatePage(client, req)
+	case "delete_page":
+		response = s.handleDeletePage(client, req)
 	case "search":
 		response = s.handleSearch(client, req)
 	case "list_spaces":
@@ -77,6 +81,20 @@ func (s *Service) HandleRequest(d amqp.Delivery) []byte {
 		response = s.handleGetSpace(client, req)
 	case "copy_page":
 		response = s.handleCopyPage(req)
+	case "get_page_children":
+		response = s.handleGetPageChildren(client, req)
+	case "add_comment":
+		response = s.handleAddComment(client, req)
+	case "get_comments":
+		response = s.handleGetComments(client, req)
+	case "add_label":
+		response = s.handleAddLabel(client, req)
+	case "get_labels":
+		response = s.handleGetLabels(client, req)
+	case "search_user":
+		response = s.handleSearchUser(client, req)
+	case "get_attachments":
+		response = s.handleGetAttachments(client, req)
 	default:
 		response = models.ErrorResponse(models.ErrCodeInvalidRequest,
 			fmt.Sprintf("unknown action: %s", req.Action), req.RequestID)
@@ -255,5 +273,176 @@ func (s *Service) handleCopyPage(req models.ConfluenceRequest) map[string]interf
 	}
 
 	return models.SuccessResponse(newPage, req.RequestID)
+}
+
+func (s *Service) handleUpdatePage(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	body, ok := req.Params["body"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing body", req.RequestID)
+	}
+
+	// Get current page to retrieve version
+	currentPage, err := client.GetPage(pageID)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	// Use provided title or keep existing
+	title := currentPage.Title
+	if t, ok := req.Params["title"].(string); ok && t != "" {
+		title = t
+	}
+
+	updatedPage, err := client.UpdatePage(pageID, title, body, currentPage.Version.Number+1)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(updatedPage, req.RequestID)
+}
+
+func (s *Service) handleDeletePage(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	err := client.DeletePage(pageID)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Page %s deleted successfully", pageID),
+	}, req.RequestID)
+}
+
+func (s *Service) handleGetPageChildren(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	limit := 25
+	if l, ok := req.Params["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	children, err := client.GetPageChildren(pageID, limit)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(children, req.RequestID)
+}
+
+func (s *Service) handleAddComment(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	body, ok := req.Params["body"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing body", req.RequestID)
+	}
+
+	comment, err := client.AddComment(pageID, body)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(comment, req.RequestID)
+}
+
+func (s *Service) handleGetComments(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	limit := 25
+	if l, ok := req.Params["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	comments, err := client.GetComments(pageID, limit)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(comments, req.RequestID)
+}
+
+func (s *Service) handleAddLabel(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	label, ok := req.Params["label"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing label", req.RequestID)
+	}
+
+	result, err := client.AddLabel(pageID, label)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(result, req.RequestID)
+}
+
+func (s *Service) handleGetLabels(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	labels, err := client.GetLabels(pageID)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(labels, req.RequestID)
+}
+
+func (s *Service) handleSearchUser(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	query, ok := req.Params["query"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing query", req.RequestID)
+	}
+
+	users, err := client.SearchUser(query)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(users, req.RequestID)
+}
+
+func (s *Service) handleGetAttachments(client *api.Client, req models.ConfluenceRequest) map[string]interface{} {
+	pageID, ok := req.Params["page_id"].(string)
+	if !ok {
+		return models.ErrorResponse(models.ErrCodeInvalidRequest, "missing page_id", req.RequestID)
+	}
+
+	limit := 25
+	if l, ok := req.Params["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	attachments, err := client.GetAttachments(pageID, limit)
+	if err != nil {
+		return models.ErrorResponse(models.ErrCodeAPIError, err.Error(), req.RequestID)
+	}
+
+	return models.SuccessResponse(attachments, req.RequestID)
 }
 

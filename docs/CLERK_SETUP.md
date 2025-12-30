@@ -136,3 +136,32 @@ For issues or questions:
 2. Review the walkthrough document
 3. Test with the HTML client
 4. Check Clerk dashboard for authentication issues
+
+---
+
+## 4. Service Tokens (Bots/AI)
+For automated tools like ChatGPT or other bots that cannot perform interactive login, use the **Service Token** flow.
+
+### Configuration
+Add `MCP_SERVICE_TOKEN` to your `.env` or Secrets:
+```env
+MCP_SERVICE_TOKEN=your-secure-static-secret-123
+```
+
+### Usage (API / ChatGPT)
+1.  **Authentication**: Use the token as a Bearer token.
+    ```
+    Authorization: Bearer your-secure-static-secret-123
+    ```
+
+2.  **Impersonation**: Since the token is generic, you can specify which user to act as by including `user_id` in the tool arguments.
+    ```json
+    {
+      "user_id": "user_2px... (Target Clerk User ID)",
+      "workspace_id": "...",
+      ...
+    }
+    ```
+
+> [!NOTE]
+> The `user_id` argument is **only** accepted when authenticated via `MCP_SERVICE_TOKEN`. Regular user tokens cannot impersonate others.

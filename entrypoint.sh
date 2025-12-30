@@ -5,24 +5,18 @@ set -e
 # We use a temp file to avoid race conditions and ensure clean replacement
 cp config.yaml config.yaml.tmp
 
-# Replace Host
-if [ ! -z "$RABBITMQ_HOST" ]; then
-  sed -i "s/host: localhost/host: $RABBITMQ_HOST/g" config.yaml.tmp
-fi
+# Replace Connection Details
+[ ! -z "$RABBITMQ_HOST" ] && sed -i "s/host: .*/host: $RABBITMQ_HOST/g" config.yaml.tmp
+[ ! -z "$RABBITMQ_PORT" ] && sed -i "s/port: .*/port: $RABBITMQ_PORT/g" config.yaml.tmp
+[ ! -z "$RABBITMQ_VHOST" ] && sed -i "s/vhost: .*/vhost: $RABBITMQ_VHOST/g" config.yaml.tmp
 
-# Replace Password
-if [ ! -z "$RABBITMQ_DEFAULT_PASS" ]; then
-  # Escape special characters in password if needed, but for now assuming simple
-  sed -i "s/password: secret/password: $RABBITMQ_DEFAULT_PASS/g" config.yaml.tmp
-fi
-
-# Replace Clerk Secret (if present in config, though code loads it from env usually)
-# The code loads CLERK_SECRET_KEY from env, so we might not need to replace it in yaml
+# Replace Credentials
+[ ! -z "$RABBITMQ_DEFAULT_USER" ] && sed -i "s/username: .*/username: $RABBITMQ_DEFAULT_USER/g" config.yaml.tmp
+[ ! -z "$RABBITMQ_DEFAULT_PASS" ] && sed -i "s/password: .*/password: $RABBITMQ_DEFAULT_PASS/g" config.yaml.tmp
 
 mv config.yaml.tmp config.yaml
 
-echo "🔧 Configuration updated:"
-grep "host:" config.yaml
+echo "🔧 Configuration updated for RabbitMQ at $RABBITMQ_HOST"
 
 echo "🚀 Starting service..."
 exec ./service

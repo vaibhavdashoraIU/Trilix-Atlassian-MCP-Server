@@ -1,134 +1,24 @@
 openapi: 3.1.0
 info:
   title: Trilix Atlassian Assistant
-  description: Use Atlassian tools (Confluence, Jira) via Trilix MCP Server.
+  description: Use Atlassian tools (Confluence, Jira) via Trilix MCP Server. Optimized for ChatGPT (30 ops).
   version: 1.0.0
 servers:
   - url: https://candra-unsabred-totally.ngrok-free.dev
     description: Production Server
 paths:
-  /api/tools/confluence_list_spaces:
-    post:
-      operationId: listConfluenceSpaces
-      summary: List all spaces in a Confluence workspace
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                workspace_id:
-                  type: string
-                  description: The workspace ID to query
-                limit:
-                  type: integer
-                  default: 50
-              required:
-                - workspace_id
-      responses:
-        "200":
-          description: List of spaces
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GenericResponse"
-  /api/tools/confluence_search:
-    post:
-      operationId: searchConfluence
-      summary: Search for content in Confluence using CQL
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                workspace_id:
-                  type: string
-                  description: The workspace ID to query
-                query:
-                  type: string
-                  description: CQL search query
-                limit:
-                  type: integer
-                  default: 10
-              required:
-                - workspace_id
-                - query
-      responses:
-        "200":
-          description: Search results
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GenericResponse"
-  /api/tools/confluence_create_page:
-    post:
-      operationId: createConfluencePage
-      summary: Create a new page in Confluence
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                workspace_id:
-                  type: string
-                  description: The workspace ID to create the page in
-                space_key:
-                  type: string
-                  description: The space key where the page will be created
-                title:
-                  type: string
-                  description: The title of the new page
-                body:
-                  type: string
-                  description: The HTML content of the page
-                parent_id:
-                  type: string
-                  description: Optional parent page ID to create as a child page
-              required:
-                - workspace_id
-                - space_key
-                - title
-                - body
-      responses:
-        "200":
-          description: Created page details
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GenericResponse"
-  /api/tools/jira_list_projects:
-    post:
-      operationId: listJiraProjects
-      summary: List all projects in a Jira workspace
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                workspace_id:
-                  type: string
-                  description: The workspace ID to query
-              required:
-                - workspace_id
-      responses:
-        "200":
-          description: List of projects
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GenericResponse"
   /api/workspaces:
     get:
       operationId: listWorkspaces
       summary: List available connected workspaces
-      description: Returns a list of workspaces the user has connected, including their IDs. Call this first to get workspace_id.
+      description: Returns a list of workspaces the user has connected. You MUST provide your Clerk User ID (user_...) to retrieve your specific workspaces.
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Your Clerk User ID for authentication (e.g., user_2pk...)
       responses:
         "200":
           description: List of workspaces
@@ -137,24 +27,702 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    workspaceId:
-                      type: string
-                    workspaceName:
-                      type: string
-                    siteUrl:
-                      type: string
+                  $ref: "#/components/schemas/WorkspaceResponse"
+    post:
+      operationId: createWorkspace
+      summary: Connect a new Atlassian workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceRequest"
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+
+  /api/workspaces/{workspace_id}/status:
+    get:
+      operationId: getWorkspaceStatus
+      summary: Check workspace connectivity status
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Your Clerk User ID for authentication
+      responses:
+        "200":
+          description: Workspace connection status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workspaceId: { type: string }
+                  connected: { type: boolean }
+                  error: { type: string }
+
+  # Confluence Tool Endpoints
+  /api/tools/confluence_list_spaces:
+    post:
+      operationId: confluenceListSpaces
+      summary: List Confluence spaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                limit: { type: integer, default: 50 }
+                user_id: { type: string }
+              required: [workspace_id, user_id]
+      responses:
+        "200":
+          description: List of spaces
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_search:
+    post:
+      operationId: confluenceSearch
+      summary: Search Confluence using CQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                query: { type: string }
+                limit: { type: integer, default: 10 }
+                user_id: { type: string }
+              required: [workspace_id, query, user_id]
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_get_page:
+    post:
+      operationId: confluenceGetPage
+      summary: Retrieve a Confluence page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                page_id: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, page_id, user_id]
+      responses:
+        "200":
+          description: Page details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_create_page:
+    post:
+      operationId: confluenceCreatePage
+      summary: Create a Confluence page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                space_key: { type: string }
+                title: { type: string }
+                body: { type: string }
+                parent_id: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, space_key, title, body, user_id]
+      responses:
+        "200":
+          description: Created page details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_update_page:
+    post:
+      operationId: confluenceUpdatePage
+      summary: Update a Confluence page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                page_id: { type: string }
+                title: { type: string }
+                body: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, page_id, body, user_id]
+      responses:
+        "200":
+          description: Updated page details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_get_page_children:
+    post:
+      operationId: confluenceGetPageChildren
+      summary: Get child pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                page_id: { type: string }
+                limit: { type: integer, default: 25 }
+                user_id: { type: string }
+              required: [workspace_id, page_id, user_id]
+      responses:
+        "200":
+          description: List of child pages
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_add_comment:
+    post:
+      operationId: confluenceAddComment
+      summary: Add comment to page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                page_id: { type: string }
+                body: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, page_id, body, user_id]
+      responses:
+        "200":
+          description: Comment details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_get_comments:
+    post:
+      operationId: confluenceGetComments
+      summary: Get page comments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                page_id: { type: string }
+                limit: { type: integer, default: 25 }
+                user_id: { type: string }
+              required: [workspace_id, page_id, user_id]
+      responses:
+        "200":
+          description: List of comments
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_add_label:
+    post:
+      operationId: confluenceAddLabel
+      summary: Add label to page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                page_id: { type: string }
+                label: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, page_id, label, user_id]
+      responses:
+        "200":
+          description: Result confirmation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_search_user:
+    post:
+      operationId: confluenceSearchUser
+      summary: Search Confluence users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                query: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, query, user_id]
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/confluence_copy_page:
+    post:
+      operationId: confluenceCopyPage
+      summary: Copy page between workspaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                src_workspace: { type: string }
+                dst_workspace: { type: string }
+                src_page_id: { type: string }
+                dst_space_key: { type: string }
+                dst_parent_id: { type: string }
+                user_id: { type: string }
+              required: [src_workspace, dst_workspace, src_page_id, dst_space_key, user_id]
+      responses:
+        "200":
+          description: New page details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  # Jira Tool Endpoints
+  /api/tools/jira_list_projects:
+    post:
+      operationId: jiraListProjects
+      summary: List Jira projects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, user_id]
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_list_issues:
+    post:
+      operationId: jiraListIssues
+      summary: Search Jira issues (JQL)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                jql: { type: string }
+                limit: { type: integer, default: 50 }
+                fields: { type: array, items: { type: string } }
+                user_id: { type: string }
+              required: [workspace_id, jql, user_id]
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_get_issue:
+    post:
+      operationId: jiraGetIssue
+      summary: Get Jira issue details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                issue_key: { type: string }
+                expand: { type: array, items: { type: string } }
+                user_id: { type: string }
+              required: [workspace_id, issue_key, user_id]
+      responses:
+        "200":
+          description: Issue details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_create_issue:
+    post:
+      operationId: jiraCreateIssue
+      summary: Create Jira issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                project_key: { type: string }
+                issue_type: { type: string }
+                summary: { type: string }
+                description: { type: string }
+                additional_fields: { type: object }
+                user_id: { type: string }
+              required: [workspace_id, project_key, issue_type, summary, user_id]
+      responses:
+        "200":
+          description: Created issue details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_update_issue:
+    post:
+      operationId: jiraUpdateIssue
+      summary: Update Jira issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                issue_key: { type: string }
+                fields: { type: object }
+                user_id: { type: string }
+              required: [workspace_id, issue_key, fields, user_id]
+      responses:
+        "200":
+          description: Update confirmation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_add_comment:
+    post:
+      operationId: jiraAddComment
+      summary: Add comment to issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                issue_key: { type: string }
+                body: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, issue_key, body, user_id]
+      responses:
+        "200":
+          description: Comment details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_get_transitions:
+    post:
+      operationId: jiraGetTransitions
+      summary: Get available transitions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                issue_key: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, issue_key, user_id]
+      responses:
+        "200":
+          description: List of transitions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_transition_issue:
+    post:
+      operationId: jiraTransitionIssue
+      summary: Transition issue status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                issue_key: { type: string }
+                transition_id: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, issue_key, transition_id, user_id]
+      responses:
+        "200":
+          description: Transition confirmation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_get_agile_boards:
+    post:
+      operationId: jiraGetAgileBoards
+      summary: Get agile boards
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                project_key: { type: string }
+                type: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, user_id]
+      responses:
+        "200":
+          description: List of boards
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_get_board_issues:
+    post:
+      operationId: jiraGetBoardIssues
+      summary: Get board issues
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                board_id: { type: string }
+                limit: { type: integer, default: 50 }
+                user_id: { type: string }
+              required: [workspace_id, board_id, user_id]
+      responses:
+        "200":
+          description: List of issues
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_get_sprints_from_board:
+    post:
+      operationId: jiraGetSprintsFromBoard
+      summary: Get board sprints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                board_id: { type: string }
+                state: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, board_id, user_id]
+      responses:
+        "200":
+          description: List of sprints
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_get_sprint_issues:
+    post:
+      operationId: jiraGetSprintIssues
+      summary: Get sprint issues
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                sprint_id: { type: string }
+                limit: { type: integer, default: 50 }
+                user_id: { type: string }
+              required: [workspace_id, sprint_id, user_id]
+      responses:
+        "200":
+          description: List of issues
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_create_sprint:
+    post:
+      operationId: jiraCreateSprint
+      summary: Create new sprint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                board_id: { type: string }
+                name: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, board_id, name, user_id]
+      responses:
+        "200":
+          description: Sprint details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_search_users:
+    post:
+      operationId: jiraSearchUsers
+      summary: Search Jira users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                query: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, query, user_id]
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_create_issue_link:
+    post:
+      operationId: jiraCreateIssueLink
+      summary: Link two Jira issues
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                type: { type: string, description: "Link type, e.g., 'Blocks', 'Relates'" }
+                inward_key: { type: string }
+                outward_key: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, type, inward_key, outward_key, user_id]
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
+  /api/tools/jira_get_user_profile:
+    post:
+      operationId: jiraGetUserProfile
+      summary: Get user profile info
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id: { type: string }
+                account_id: { type: string }
+                user_id: { type: string }
+              required: [workspace_id, account_id, user_id]
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenericResponse" }
+
 components:
   schemas:
     GenericResponse:
       type: object
       properties:
-        status:
-          type: string
-          description: Response status
+        status: { type: string }
       additionalProperties: true
-      description: Dynamic object response from Atlassian API
+    CreateWorkspaceRequest:
+      type: object
+      properties:
+        workspaceName: { type: string }
+        siteUrl: { type: string }
+        email: { type: string }
+        apiToken: { type: string }
+        user_id: { type: string, description: "Your Clerk User ID (required for impersonation)" }
+      required: [siteUrl, email, apiToken, user_id]
+    WorkspaceResponse:
+      type: object
+      properties:
+        workspaceId: { type: string }
+        workspaceName: { type: string }
+        siteUrl: { type: string }
+        email: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
   securitySchemes:
     bearerAuth:
       type: http

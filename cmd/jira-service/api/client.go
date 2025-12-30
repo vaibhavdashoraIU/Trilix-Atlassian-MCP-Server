@@ -38,9 +38,19 @@ var sharedHTTPClient = &http.Client{
 
 // NewClient creates an authenticated Jira client
 func NewClient(creds WorkspaceCredentials, timeout time.Duration) *Client {
+	// Use a dedicated client if a specific timeout is requested, 
+	// otherwise use the shared one.
+	client := sharedHTTPClient
+	if timeout > 0 && timeout != sharedHTTPClient.Timeout {
+		client = &http.Client{
+			Timeout:   timeout,
+			Transport: sharedHTTPClient.Transport,
+		}
+	}
+
 	return &Client{
 		creds:      creds,
-		httpClient: sharedHTTPClient,
+		httpClient: client,
 	}
 }
 
@@ -53,16 +63,18 @@ func (c *Client) authHeader() string {
 
 // SearchIssues searches for issues using JQL
 func (c *Client) SearchIssues(jql string, fields []string, limit int) (*models.SearchResponse, error) {
-	url := fmt.Sprintf("%s/rest/api/3/search", c.creds.Site)
+	url := fmt.Sprintf("%s/rest/api/3/search/jql", c.creds.Site)
 
 	payload := map[string]interface{}{
 		"jql":        jql,
 		"maxResults": limit,
-		"startAt":    0,
 	}
 
 	if len(fields) > 0 {
 		payload["fields"] = fields
+	} else {
+		// If no fields requested, ensure we get at least the essentials.
+		payload["fields"] = []string{"key", "summary", "status", "issuetype", "assignee", "updated"}
 	}
 
 	jsonPayload, err := json.Marshal(payload)
@@ -334,5 +346,580 @@ func (c *Client) ListProjects() ([]models.ProjectRef, error) {
 	}
 
 	return projects, nil
+}
+
+// GetAgileBoards lists all agile boards
+func (c *Client) GetAgileBoards(projectKey, boardType string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/agile/1.0/board", c.creds.Site)
+	
+	// Add query parameters
+	params := ""
+	if projectKey != "" {
+		params += "?projectKeyOrId=" + projectKey
+	}
+	if boardType != "" {
+		if params == "" {
+			params += "?type=" + boardType
+		} else {
+			params += "&type=" + boardType
+		}
+	}
+	url += params
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get boards: %s", string(body))
+	}
+
+	var result struct {
+		Values []map[string]interface{} `json:"values"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Values, nil
+}
+
+// GetBoardIssues gets issues on a board
+func (c *Client) GetBoardIssues(boardID string, limit int) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/agile/1.0/board/%s/issue?maxResults=%d", 
+		c.creds.Site, boardID, limit)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get board issues: %s", string(body))
+	}
+
+	var result struct {
+		Issues []map[string]interface{} `json:"issues"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Issues, nil
+}
+
+// GetSprintsFromBoard lists sprints for a board
+func (c *Client) GetSprintsFromBoard(boardID, state string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/agile/1.0/board/%s/sprint", c.creds.Site, boardID)
+	
+	if state != "" {
+		url += "?state=" + state
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get sprints: %s", string(body))
+	}
+
+	var result struct {
+		Values []map[string]interface{} `json:"values"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Values, nil
+}
+
+// GetSprintIssues gets issues in a sprint
+func (c *Client) GetSprintIssues(sprintID string, limit int) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/agile/1.0/sprint/%s/issue?maxResults=%d", 
+		c.creds.Site, sprintID, limit)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get sprint issues: %s", string(body))
+	}
+
+	var result struct {
+		Issues []map[string]interface{} `json:"issues"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Issues, nil
+}
+
+// CreateSprint creates a new sprint
+func (c *Client) CreateSprint(boardID, name, startDate, endDate string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/agile/1.0/sprint", c.creds.Site)
+
+	payload := map[string]interface{}{
+		"name":          name,
+		"originBoardId": boardID,
+	}
+	
+	if startDate != "" {
+		payload["startDate"] = startDate
+	}
+	if endDate != "" {
+		payload["endDate"] = endDate
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to create sprint: %s", string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// UpdateSprint updates an existing sprint
+func (c *Client) UpdateSprint(sprintID, name, state, startDate, endDate string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/agile/1.0/sprint/%s", c.creds.Site, sprintID)
+
+	payload := make(map[string]interface{})
+	
+	if name != "" {
+		payload["name"] = name
+	}
+	if state != "" {
+		payload["state"] = state
+	}
+	if startDate != "" {
+		payload["startDate"] = startDate
+	}
+	if endDate != "" {
+		payload["endDate"] = endDate
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to update sprint: %s", string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// GetWorklog gets worklog entries for an issue
+func (c *Client) GetWorklog(issueKey string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/2/issue/%s/worklog", c.creds.Site, issueKey)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get worklog: %s", string(body))
+	}
+
+	var result struct {
+		Worklogs []map[string]interface{} `json:"worklogs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Worklogs, nil
+}
+
+// AddWorklog adds a worklog entry to an issue
+func (c *Client) AddWorklog(issueKey, timeSpent, comment, started string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/2/issue/%s/worklog", c.creds.Site, issueKey)
+
+	payload := map[string]interface{}{
+		"timeSpent": timeSpent,
+	}
+	
+	if comment != "" {
+		payload["comment"] = comment
+	}
+	if started != "" {
+		payload["started"] = started
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to add worklog: %s", string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// GetTransitions gets available transitions for an issue
+func (c *Client) GetTransitions(issueKey string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/2/issue/%s/transitions", c.creds.Site, issueKey)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get transitions: %s", string(body))
+	}
+
+	var result struct {
+		Transitions []map[string]interface{} `json:"transitions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Transitions, nil
+}
+
+// DeleteIssue deletes an issue
+func (c *Client) DeleteIssue(issueKey string) error {
+	url := fmt.Sprintf("%s/rest/api/2/issue/%s", c.creds.Site, issueKey)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to delete issue: %s", string(body))
+	}
+
+	return nil
+}
+
+// GetProjectIssues gets all issues in a project
+func (c *Client) GetProjectIssues(projectKey string, limit int) (*models.SearchResponse, error) {
+	jql := fmt.Sprintf("project=%s ORDER BY created DESC", projectKey)
+	return c.SearchIssues(jql, nil, limit)
+}
+
+// GetProjectVersions lists versions for a project
+func (c *Client) GetProjectVersions(projectKey string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/2/project/%s/versions", c.creds.Site, projectKey)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get project versions: %s", string(body))
+	}
+
+	var versions []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&versions); err != nil {
+		return nil, err
+	}
+
+	return versions, nil
+}
+
+// SearchUsers searches for Jira users
+func (c *Client) SearchUsers(query string) ([]models.User, error) {
+	url := fmt.Sprintf("%s/rest/api/3/user/search?query=%s", c.creds.Site, query)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to search users: %s", string(body))
+	}
+
+	var users []models.User
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// GetUserProfile gets a specific user's detailed profile
+func (c *Client) GetUserProfile(accountID string) (*models.User, error) {
+	url := fmt.Sprintf("%s/rest/api/3/user?accountId=%s", c.creds.Site, accountID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get user profile: %s", string(body))
+	}
+
+	var user models.User
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// SearchFields lists all available fields in Jira
+func (c *Client) SearchFields() ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/3/field", c.creds.Site)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to search fields: %s", string(body))
+	}
+
+	var fields []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&fields); err != nil {
+		return nil, err
+	}
+
+	return fields, nil
+}
+
+// CreateIssueLink creates a link between two issues
+func (c *Client) CreateIssueLink(type_name, inward_key, outward_key string) error {
+	url := fmt.Sprintf("%s/rest/api/3/issueLink", c.creds.Site)
+
+	payload := map[string]interface{}{
+		"type": map[string]string{
+			"name": type_name,
+		},
+		"inwardIssue": map[string]string{
+			"key": inward_key,
+		},
+		"outwardIssue": map[string]string{
+			"key": outward_key,
+		},
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to create issue link: %s", string(body))
+	}
+
+	return nil
+}
+
+// RemoveIssueLink removes a link between issues
+func (c *Client) RemoveIssueLink(linkID string) error {
+	url := fmt.Sprintf("%s/rest/api/3/issueLink/%s", c.creds.Site, linkID)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to remove issue link: %s", string(body))
+	}
+
+	return nil
 }
 

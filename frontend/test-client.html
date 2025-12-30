@@ -185,6 +185,17 @@
             <button class="tool-btn" onclick="showForm('confluence_get_page')">Get Page</button>
             <button class="tool-btn" onclick="showForm('confluence_search')">Search CQL</button>
             <button class="tool-btn" onclick="showForm('confluence_create_page')">Create Page</button>
+            <button class="tool-btn" onclick="showForm('confluence_update_page')">Update Page</button>
+            <button class="tool-btn" onclick="showForm('confluence_delete_page')">Delete Page</button>
+            <button class="tool-btn" onclick="showForm('confluence_get_page_children')">Get Page Children</button>
+            <button class="tool-btn" onclick="showForm('confluence_add_comment')">Add Comment</button>
+            <button class="tool-btn" onclick="showForm('confluence_get_comments')">Get Comments</button>
+            <button class="tool-btn" onclick="showForm('confluence_add_label')">Add Label</button>
+            <button class="tool-btn" onclick="showForm('confluence_get_labels')">Get Labels</button>
+            <button class="tool-btn" onclick="showForm('confluence_copy_page')">Copy Page</button>
+            <button class="tool-btn" onclick="showForm('confluence_search_user')">Search User</button>
+            <button class="tool-btn" onclick="showForm('confluence_get_space')">Get Space</button>
+            <button class="tool-btn" onclick="showForm('confluence_get_attachments')">Get Attachments</button>
 
             <div class="tool-category">Jira</div>
             <button class="tool-btn" onclick="showForm('jira_list_projects')">List Projects</button>
@@ -192,8 +203,25 @@
             <button class="tool-btn" onclick="showForm('jira_get_issue')">Get Issue</button>
             <button class="tool-btn" onclick="showForm('jira_create_issue')">Create Issue</button>
             <button class="tool-btn" onclick="showForm('jira_update_issue')">Update Issue</button>
+            <button class="tool-btn" onclick="showForm('jira_delete_issue')">Delete Issue</button>
             <button class="tool-btn" onclick="showForm('jira_add_comment')">Add Comment</button>
+            <button class="tool-btn" onclick="showForm('jira_get_transitions')">Get Transitions</button>
             <button class="tool-btn" onclick="showForm('jira_transition_issue')">Transition Issue</button>
+            <button class="tool-btn" onclick="showForm('jira_get_agile_boards')">Agile Boards</button>
+            <button class="tool-btn" onclick="showForm('jira_get_board_issues')">Board Issues</button>
+            <button class="tool-btn" onclick="showForm('jira_get_sprints_from_board')">Board Sprints</button>
+            <button class="tool-btn" onclick="showForm('jira_get_sprint_issues')">Sprint Issues</button>
+            <button class="tool-btn" onclick="showForm('jira_create_sprint')">Create Sprint</button>
+            <button class="tool-btn" onclick="showForm('jira_update_sprint')">Update Sprint</button>
+            <button class="tool-btn" onclick="showForm('jira_get_worklog')">Get Worklog</button>
+            <button class="tool-btn" onclick="showForm('jira_add_worklog')">Add Worklog</button>
+            <button class="tool-btn" onclick="showForm('jira_get_project_issues')">Project Issues</button>
+            <button class="tool-btn" onclick="showForm('jira_get_project_versions')">Project Versions</button>
+            <button class="tool-btn" onclick="showForm('jira_search_users')">Search Users</button>
+            <button class="tool-btn" onclick="showForm('jira_get_user_profile')">Get User Profile</button>
+            <button class="tool-btn" onclick="showForm('jira_create_issue_link')">Create Issue Link</button>
+            <button class="tool-btn" onclick="showForm('jira_remove_issue_link')">Remove Issue Link</button>
+            <button class="tool-btn" onclick="showForm('jira_search_fields')">Search Fields</button>
         </div>
 
         <div class="main">
@@ -211,8 +239,8 @@
 
     <!-- Clerk -->
     <script async crossorigin="anonymous"
-        data-clerk-publishable-key="pk_test_Zmx5aW5nLWtvYWxhLTEwLmNsZXJrLmFjY291bnRzLmRldiQ"
-        src="https://flying-koala-10.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        data-clerk-publishable-key="pk_test_ZGl2aW5lLWdyb3VwZXItOTIuY2xlcmsuYWNjb3VudHMuZGV2JA"
+        src="https://divine-grouper-92.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
         type="text/javascript"></script>
 
     <script>
@@ -271,6 +299,126 @@
                     { name: 'parent_id', label: 'Parent Page ID (Optional)', type: 'text' }
                 ],
                 endpoint: '/api/tools/confluence_create_page',
+                method: 'POST'
+            },
+            confluence_update_page: {
+                title: "Confluence: Update Page",
+                desc: "Update an existing Confluence page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' },
+                    { name: 'title', label: 'New Title (Optional)', type: 'text' },
+                    { name: 'body', label: 'New Body (Storage Format)', type: 'textarea' }
+                ],
+                endpoint: '/api/tools/confluence_update_page',
+                method: 'POST'
+            },
+            confluence_delete_page: {
+                title: "Confluence: Delete Page",
+                desc: "Permanently delete a Confluence page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/confluence_delete_page',
+                method: 'POST'
+            },
+            confluence_get_page_children: {
+                title: "Confluence: Get Page Children",
+                desc: "List child pages of a specific page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Parent Page ID', type: 'text' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 25 }
+                ],
+                endpoint: '/api/tools/confluence_get_page_children',
+                method: 'POST'
+            },
+            confluence_add_comment: {
+                title: "Confluence: Add Comment",
+                desc: "Add a comment to a page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' },
+                    { name: 'body', label: 'Comment Body (Storage Format)', type: 'textarea' }
+                ],
+                endpoint: '/api/tools/confluence_add_comment',
+                method: 'POST'
+            },
+            confluence_get_comments: {
+                title: "Confluence: Get Comments",
+                desc: "Retrieve comments for a page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 25 }
+                ],
+                endpoint: '/api/tools/confluence_get_comments',
+                method: 'POST'
+            },
+            confluence_add_label: {
+                title: "Confluence: Add Label",
+                desc: "Add a label to a page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' },
+                    { name: 'label', label: 'Label Name', type: 'text' }
+                ],
+                endpoint: '/api/tools/confluence_add_label',
+                method: 'POST'
+            },
+            confluence_get_labels: {
+                title: "Confluence: Get Labels",
+                desc: "List labels on a page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/confluence_get_labels',
+                method: 'POST'
+            },
+            confluence_copy_page: {
+                title: "Confluence: Copy Page",
+                desc: "Copy a page between workspaces or within the same workspace.",
+                fields: [
+                    { name: 'src_workspace', label: 'Source Workspace ID', type: 'text' },
+                    { name: 'dst_workspace', label: 'Dest Workspace ID', type: 'text' },
+                    { name: 'src_page_id', label: 'Source Page ID', type: 'text' },
+                    { name: 'dst_space_key', label: 'Dest Space Key', type: 'text' },
+                    { name: 'dst_parent_id', label: 'Dest Parent ID (Optional)', type: 'text' }
+                ],
+                endpoint: '/api/tools/confluence_copy_page',
+                method: 'POST'
+            },
+            confluence_search_user: {
+                title: "Confluence: Search User",
+                desc: "Search for Confluence users by name or email.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'query', label: 'User Query', type: 'text', placeholder: 'John Doe' }
+                ],
+                endpoint: '/api/tools/confluence_search_user',
+                method: 'POST'
+            },
+            confluence_get_space: {
+                title: "Confluence: Get Space",
+                desc: "Get details for a specific Confluence space.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'space_key', label: 'Space Key', type: 'text' }
+                ],
+                endpoint: '/api/tools/confluence_get_space',
+                method: 'POST'
+            },
+            confluence_get_attachments: {
+                title: "Confluence: Get Attachments",
+                desc: "List attachments for a Confluence page.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'page_id', label: 'Page ID', type: 'text' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 25 }
+                ],
+                endpoint: '/api/tools/confluence_get_attachments',
                 method: 'POST'
             },
             jira_list_projects: {
@@ -348,6 +496,189 @@
                 ],
                 endpoint: '/api/tools/jira_transition_issue',
                 method: 'POST'
+            },
+            jira_delete_issue: {
+                title: "Jira: Delete Issue",
+                desc: "Delete an existing Jira issue.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'issue_key', label: 'Issue Key', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_delete_issue',
+                method: 'POST'
+            },
+            jira_get_transitions: {
+                title: "Jira: Get Transitions",
+                desc: "Get available transitions for an issue.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'issue_key', label: 'Issue Key', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_get_transitions',
+                method: 'POST'
+            },
+            jira_get_agile_boards: {
+                title: "Jira: Get Agile Boards",
+                desc: "List agile boards in a workspace.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'project_key', label: 'Project Key (Optional)', type: 'text' },
+                    { name: 'type', label: 'Board Type (scrum/kanban)', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_get_agile_boards',
+                method: 'POST'
+            },
+            jira_get_board_issues: {
+                title: "Jira: Get Board Issues",
+                desc: "List issues on an agile board.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'board_id', label: 'Board ID', type: 'text' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 50 }
+                ],
+                endpoint: '/api/tools/jira_get_board_issues',
+                method: 'POST'
+            },
+            jira_get_sprints_from_board: {
+                title: "Jira: Get Board Sprints",
+                desc: "List sprints for an agile board.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'board_id', label: 'Board ID', type: 'text' },
+                    { name: 'state', label: 'State (active/future/closed)', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_get_sprints_from_board',
+                method: 'POST'
+            },
+            jira_get_sprint_issues: {
+                title: "Jira: Get Sprint Issues",
+                desc: "List issues in a specific sprint.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'sprint_id', label: 'Sprint ID', type: 'text' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 50 }
+                ],
+                endpoint: '/api/tools/jira_get_sprint_issues',
+                method: 'POST'
+            },
+            jira_create_sprint: {
+                title: "Jira: Create Sprint",
+                desc: "Create a new sprint.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'board_id', label: 'Board ID', type: 'text' },
+                    { name: 'name', label: 'Sprint Name', type: 'text' },
+                    { name: 'start_date', label: 'Start Date (ISO)', type: 'text' },
+                    { name: 'end_date', label: 'End Date (ISO)', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_create_sprint',
+                method: 'POST'
+            },
+            jira_update_sprint: {
+                title: "Jira: Update Sprint",
+                desc: "Update an existing sprint.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'sprint_id', label: 'Sprint ID', type: 'text' },
+                    { name: 'name', label: 'New Name (Optional)', type: 'text' },
+                    { name: 'state', label: 'State (active/closed)', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_update_sprint',
+                method: 'POST'
+            },
+            jira_get_worklog: {
+                title: "Jira: Get Worklog",
+                desc: "Retrieve worklogs for an issue.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'issue_key', label: 'Issue Key', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_get_worklog',
+                method: 'POST'
+            },
+            jira_add_worklog: {
+                title: "Jira: Add Worklog",
+                desc: "Add a worklog entry to an issue.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'issue_key', label: 'Issue Key', type: 'text' },
+                    { name: 'time_spent', label: 'Time Spent (e.g. 2h)', type: 'text' },
+                    { name: 'comment', label: 'Comment', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_add_worklog',
+                method: 'POST'
+            },
+            jira_get_project_issues: {
+                title: "Jira: Get Project Issues",
+                desc: "List all issues in a project.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'project_key', label: 'Project Key', type: 'text' },
+                    { name: 'limit', label: 'Limit', type: 'number', value: 100 }
+                ],
+                endpoint: '/api/tools/jira_get_project_issues',
+                method: 'POST'
+            },
+            jira_get_project_versions: {
+                title: "Jira: Get Project Versions",
+                desc: "List versions for a project.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'project_key', label: 'Project Key', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_get_project_versions',
+                method: 'POST'
+            },
+            jira_search_users: {
+                title: "Jira: Search Users",
+                desc: "Search for Jira users by name or email.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'query', label: 'User Query', type: 'text', placeholder: 'John Doe' }
+                ],
+                endpoint: '/api/tools/jira_search_users',
+                method: 'POST'
+            },
+            jira_get_user_profile: {
+                title: "Jira: Get User Profile",
+                desc: "Get detailed profile information about a user.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'account_id', label: 'Account ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_get_user_profile',
+                method: 'POST'
+            },
+            jira_create_issue_link: {
+                title: "Jira: Create Issue Link",
+                desc: "Link two Jira issues together.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'type', label: 'Link Type', type: 'text', placeholder: 'Blocks' },
+                    { name: 'inward_key', label: 'Inward Issue Key', type: 'text', placeholder: 'PROJ-123' },
+                    { name: 'outward_key', label: 'Outward Issue Key', type: 'text', placeholder: 'PROJ-456' }
+                ],
+                endpoint: '/api/tools/jira_create_issue_link',
+                method: 'POST'
+            },
+            jira_remove_issue_link: {
+                title: "Jira: Remove Issue Link",
+                desc: "Remove an existing link between issues.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' },
+                    { name: 'link_id', label: 'Link ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_remove_issue_link',
+                method: 'POST'
+            },
+            jira_search_fields: {
+                title: "Jira: Search Fields",
+                desc: "List all available fields in the Jira workspace.",
+                fields: [
+                    { name: 'workspace_id', label: 'Workspace ID', type: 'text' }
+                ],
+                endpoint: '/api/tools/jira_search_fields',
+                method: 'POST'
             }
         };
 
@@ -371,7 +702,7 @@
                     if (user) {
                         // Mount the User Button (Avatar + Sign Out)
                         authStatus.innerHTML = ''; // Clear "Checking Auth..."
-                        window.Clerk.mountUserButton(authStatus);
+                        window.Clerk.mountUserButton(authStatus, { afterSignOutUrl: '/' });
 
                         // Get the long-lived token if available
                         try {

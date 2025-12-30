@@ -18,6 +18,7 @@ type CredentialStoreInterface interface {
 	SaveCredentials(cred *models.AtlassianCredential) error
 	DeleteCredentials(userID, workspaceID string) error
 	ListWorkspaces(userID string) ([]models.AtlassianCredential, error)
+	Ping() error
 	Close() error
 }
 
@@ -213,6 +214,11 @@ func (s *FileCredentialStore) ListWorkspaces(userID string) ([]models.AtlassianC
 		})
 	}
 	return credentials, nil
+}
+
+// Ping is a no-op for file-based storage
+func (s *FileCredentialStore) Ping() error {
+	return nil
 }
 
 // Close is a no-op for file-based storage

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/crypto"
@@ -19,13 +20,20 @@ type CredentialStore struct {
 func NewCredentialStore(connectionString, encryptionKey string) (*CredentialStore, error) {
 	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open postgres: %v", err)
 	}
+
+	// Set connection pool limits for cloud stability
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	// Test connection
 	if err := db.Ping(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ping postgres: %v", err)
 	}
+
+	fmt.Println("✅ Successfully connected to PostgreSQL/Supabase")
 
 	store := &CredentialStore{
 		db:            db,
@@ -34,7 +42,7 @@ func NewCredentialStore(connectionString, encryptionKey string) (*CredentialStor
 
 	// Initialize schema
 	if err := store.initSchema(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize schema: %v", err)
 	}
 
 	return store, nil
@@ -179,6 +187,11 @@ func (s *CredentialStore) ListWorkspaces(userID string) ([]models.AtlassianCrede
 	}
 
 	return credentials, rows.Err()
+}
+
+// Ping tests the database connection
+func (s *CredentialStore) Ping() error {
+	return s.db.Ping()
 }
 
 // Close closes the database connection

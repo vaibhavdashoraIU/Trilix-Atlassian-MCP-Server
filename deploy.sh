@@ -33,11 +33,14 @@ case $ACTION in
     kubectl apply -f k8s/06-jira-service.yaml
     kubectl apply -f k8s/07-mcp-server.yaml
     
+    echo "🌐 Creating ALB Ingress..."
+    kubectl apply -f k8s/08-mcp-ingress.yaml
+    
     echo ""
     echo "✅ Deployment complete!"
     echo ""
     echo "📊 Check status with: ./deploy.sh status"
-    echo "🌐 Get LoadBalancer URL with: kubectl get svc mcp-server -n ${NAMESPACE}"
+    echo "🌐 Get ALB URL with: kubectl get ingress mcp-ingress -n ${NAMESPACE}"
     ;;
     
   delete)
@@ -62,8 +65,11 @@ case $ACTION in
     echo "💾 Persistent Volume Claims:"
     kubectl get pvc -n ${NAMESPACE}
     echo ""
-    echo "🌐 LoadBalancer URL:"
-    kubectl get svc mcp-server -n ${NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null && echo "" || echo "  Not yet assigned"
+    echo "🌐 Ingress (ALB) Status:"
+    kubectl get ingress -n ${NAMESPACE}
+    echo ""
+    echo "🔗 ALB DNS Name:"
+    kubectl get ingress mcp-ingress -n ${NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null && echo "" || echo "  Not yet provisioned (Wait 2-3 mins)"
     ;;
     
   *)

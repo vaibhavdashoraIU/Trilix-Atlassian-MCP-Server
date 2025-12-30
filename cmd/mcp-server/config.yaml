@@ -5,6 +5,9 @@ common:
   consolelogging: true
   settingsfiles:
     - settings.yaml
+  app:
+    port: 3000
+    rpc_timeout: 35s
 
 rabbitmq:
   primary:

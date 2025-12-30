@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
@@ -38,9 +40,19 @@ var sharedHTTPClient = &http.Client{
 
 // NewClient creates an authenticated Confluence client
 func NewClient(creds WorkspaceCredentials, timeout time.Duration) *Client {
+	// Use a dedicated client if a specific timeout is requested, 
+	// otherwise use the shared one.
+	client := sharedHTTPClient
+	if timeout > 0 && timeout != sharedHTTPClient.Timeout {
+		client = &http.Client{
+			Timeout:   timeout,
+			Transport: sharedHTTPClient.Transport,
+		}
+	}
+
 	return &Client{
 		creds:      creds,
-		httpClient: sharedHTTPClient,
+		httpClient: client,
 	}
 }
 
@@ -258,5 +270,351 @@ func (c *Client) GetSpace(spaceKey string) (*models.ConfluenceSpace, error) {
 	}
 
 	return &space, nil
+}
+
+// UpdatePage updates an existing page
+func (c *Client) UpdatePage(pageID, title, body string, version int) (*models.ConfluencePage, error) {
+	url := fmt.Sprintf("%s/rest/api/content/%s", c.creds.Site, pageID)
+
+	payload := map[string]interface{}{
+		"version": map[string]interface{}{
+			"number": version,
+		},
+		"title": title,
+		"type":  "page",
+		"body": map[string]interface{}{
+			"storage": map[string]interface{}{
+				"value":          body,
+				"representation": "storage",
+			},
+		},
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to update page %s: %s", pageID, string(body))
+	}
+
+	var page models.ConfluencePage
+	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+		return nil, err
+	}
+
+	return &page, nil
+}
+
+// DeletePage deletes a page
+func (c *Client) DeletePage(pageID string) error {
+	url := fmt.Sprintf("%s/rest/api/content/%s", c.creds.Site, pageID)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to delete page %s: %s", pageID, string(body))
+	}
+
+	return nil
+}
+
+// GetPageChildren gets child pages (wrapper around GetChildren for consistency)
+func (c *Client) GetPageChildren(pageID string, limit int) ([]models.ConfluencePage, error) {
+	url := fmt.Sprintf("%s/rest/api/content/%s/child/page?limit=%d&expand=version",
+		c.creds.Site, pageID, limit)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get children of %s: %s", pageID, string(body))
+	}
+
+	var result struct {
+		Results []models.ConfluencePage `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Results, nil
+}
+
+// AddComment adds a comment to a page
+func (c *Client) AddComment(pageID, body string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/content", c.creds.Site)
+
+	payload := map[string]interface{}{
+		"type": "comment",
+		"container": map[string]interface{}{
+			"id":   pageID,
+			"type": "page",
+		},
+		"body": map[string]interface{}{
+			"storage": map[string]interface{}{
+				"value":          body,
+				"representation": "storage",
+			},
+		},
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to add comment: %s", string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// GetComments gets comments for a page
+func (c *Client) GetComments(pageID string, limit int) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/content/%s/child/comment?limit=%d&expand=body.storage",
+		c.creds.Site, pageID, limit)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get comments: %s", string(body))
+	}
+
+	var result struct {
+		Results []map[string]interface{} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Results, nil
+}
+
+// AddLabel adds a label to a page
+func (c *Client) AddLabel(pageID, label string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/content/%s/label", c.creds.Site, pageID)
+
+	payload := []map[string]interface{}{
+		{
+			"prefix": "global",
+			"name":   label,
+		},
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to add label: %s", string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// GetLabels gets labels for a page
+func (c *Client) GetLabels(pageID string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/content/%s/label", c.creds.Site, pageID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get labels: %s", string(body))
+	}
+
+	var result struct {
+		Results []map[string]interface{} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Results, nil
+}
+// SearchUser searches for users by name or email
+func (c *Client) SearchUser(query string) ([]models.ConfluenceUser, error) {
+	// Using the verified /rest/api/search/user endpoint which uses CQL
+	// Construct CQL to search by name, escaping quotes in query
+	safeQuery := strings.ReplaceAll(query, "\"", "\\\"")
+	cql := fmt.Sprintf("user.fullname ~ \"%s\"", safeQuery)
+	
+	// Ensure no double slashes if Site has a trailing slash
+	baseURL := strings.TrimSuffix(c.creds.Site, "/")
+	url := fmt.Sprintf("%s/rest/api/search/user?cql=%s", 
+		baseURL, url.QueryEscape(cql))
+
+	fmt.Printf("DEBUG: Confluence SearchUser URL: %s\n", url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("DEBUG: Confluence SearchUser Error Response: %s\n", string(body))
+		return nil, fmt.Errorf("failed to search user: %s", string(body))
+	}
+
+	fmt.Printf("DEBUG: Confluence SearchUser Success Response: %s\n", string(body))
+
+	var searchResp models.UserSearchResults
+	if err := json.Unmarshal(body, &searchResp); err != nil {
+		return nil, err
+	}
+
+	users := make([]models.ConfluenceUser, len(searchResp.Results))
+	for i, res := range searchResp.Results {
+		users[i] = res.User
+	}
+
+	return users, nil
+}
+
+// GetAttachments gets attachments for a page
+func (c *Client) GetAttachments(pageID string, limit int) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/rest/api/content/%s/child/attachment?limit=%d",
+		c.creds.Site, pageID, limit)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.authHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get attachments: %s", string(body))
+	}
+
+	var result struct {
+		Results []map[string]interface{} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Results, nil
 }
 

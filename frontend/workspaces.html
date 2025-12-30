@@ -8,8 +8,8 @@
 
     <!-- Clerk -->
     <script async crossorigin="anonymous"
-        data-clerk-publishable-key="pk_test_Zmx5aW5nLWtvYWxhLTEwLmNsZXJrLmFjY291bnRzLmRldiQ"
-        src="https://flying-koala-10.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        data-clerk-publishable-key="pk_test_ZGl2aW5lLWdyb3VwZXItOTIuY2xlcmsuYWNjb3VudHMuZGV2JA"
+        src="https://divine-grouper-92.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
         type="text/javascript"></script>
 
     <!-- Fonts -->
@@ -518,6 +518,16 @@
             background: rgba(255, 71, 87, 0.1);
         }
 
+        .btn-icon.copy-btn {
+            border-color: var(--space-teal);
+            color: var(--space-teal);
+        }
+
+        .btn-icon.copy-btn:hover {
+            background: rgba(0, 212, 170, 0.1);
+            box-shadow: 0 0 10px rgba(0, 212, 170, 0.3);
+        }
+
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -885,52 +895,54 @@
                 <div class="auth-header">
                     <div class="user-info">
                         <img id="user-avatar" class="user-avatar" src="" alt="User avatar">
-                        <div class="user-details">
-                            <h3 id="user-name">Commander</h3>
-                            <p id="user-email">email@domain.com</p>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 16px;">
-                        <div class="status-badge">
-                            <span class="status-dot"></span>
-                            Systems Online
-                        </div>
-                        <button id="logout-btn" class="btn btn-secondary btn-small">
-                            Sign Out
-                        </button>
+                        <h3 id="user-name">Commander</h3>
+                        <p id="user-email">email@domain.com</p>
+                        <p id="clerk-id"
+                            style="font-size: 0.65rem; color: var(--chrome); margin-top: 4px; border-top: 1px solid rgba(0, 212, 170, 0.2); padding-top: 4px;">
+                        </p>
                     </div>
                 </div>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div class="status-badge">
+                        <span class="status-dot"></span>
+                        Systems Online
+                    </div>
+                    <button id="logout-btn" class="btn btn-secondary btn-small">
+                        Sign Out
+                    </button>
+                </div>
             </div>
-        </section>
+    </div>
+    </section>
 
-        <!-- Workspaces Section -->
-        <section id="workspaces-section" class="workspaces-section hidden">
-            <div class="section-header">
-                <h2 class="section-title">Connected Workspaces</h2>
-                <button id="add-workspace-btn" class="btn btn-primary btn-small">
-                    + Add Workspace
-                </button>
-            </div>
+    <!-- Workspaces Section -->
+    <section id="workspaces-section" class="workspaces-section hidden">
+        <div class="section-header">
+            <h2 class="section-title">Connected Workspaces</h2>
+            <button id="add-workspace-btn" class="btn btn-primary btn-small">
+                + Add Workspace
+            </button>
+        </div>
 
-            <!-- Loading state -->
-            <div id="workspaces-loading" class="loading hidden">
-                <div class="loading-dot"></div>
-                <div class="loading-dot"></div>
-                <div class="loading-dot"></div>
-            </div>
+        <!-- Loading state -->
+        <div id="workspaces-loading" class="loading hidden">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
 
-            <!-- Workspaces grid -->
-            <div id="workspaces-grid" class="workspaces-grid">
-                <!-- Workspace cards will be inserted here -->
-            </div>
+        <!-- Workspaces grid -->
+        <div id="workspaces-grid" class="workspaces-grid">
+            <!-- Workspace cards will be inserted here -->
+        </div>
 
-            <!-- Empty state -->
-            <div id="empty-state" class="empty-state hidden">
-                <div class="empty-state-icon">🛸</div>
-                <h3>No Workspaces Detected</h3>
-                <p>Add your first Atlassian workspace to begin your mission.</p>
-            </div>
-        </section>
+        <!-- Empty state -->
+        <div id="empty-state" class="empty-state hidden">
+            <div class="empty-state-icon">🛸</div>
+            <h3>No Workspaces Detected</h3>
+            <p>Add your first Atlassian workspace to begin your mission.</p>
+        </div>
+    </section>
     </div>
 
     <!-- Add/Edit Workspace Modal -->
@@ -1065,6 +1077,7 @@
             document.getElementById('user-avatar').src = user.imageUrl || 'https://via.placeholder.com/50';
             document.getElementById('user-name').textContent = user.fullName || 'Commander';
             document.getElementById('user-email').textContent = user.primaryEmailAddress?.emailAddress || '';
+            document.getElementById('clerk-id').textContent = 'Clerk ID: ' + user.id;
 
             // Load workspaces
             loadWorkspaces();
@@ -1209,10 +1222,11 @@
         // UI Rendering
         // ===========================================
         function renderWorkspaces() {
+            console.log("Rendering workspaces:", workspaces);
             const grid = document.getElementById('workspaces-grid');
             const emptyState = document.getElementById('empty-state');
 
-            if (workspaces.length === 0) {
+            if (!workspaces || workspaces.length === 0) {
                 grid.innerHTML = '';
                 emptyState.classList.remove('hidden');
                 return;
@@ -1363,7 +1377,7 @@
             // Logout button
             document.getElementById('logout-btn').addEventListener('click', async () => {
                 if (window.Clerk && window.Clerk.loaded) {
-                    await window.Clerk.signOut();
+                    await window.Clerk.signOut({ redirectUrl: '/' });
                 }
             });
 
