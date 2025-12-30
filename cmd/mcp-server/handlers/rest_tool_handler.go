@@ -28,6 +28,8 @@ func NewRestToolHandler(confluenceHandler *ConfluenceHandler, jiraHandler *JiraH
 
 // HandleToolRequest generic handler for tool execution
 func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Incoming REST request: %s %s from %s\n", r.Method, r.URL.Path, r.RemoteAddr)
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -35,7 +37,6 @@ func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Reque
 
 	// Extract tool name from URL path
 	// Expected format: /api/tools/{tool_name}
-	fmt.Printf("Incoming REST request: %s %s from %s\n", r.Method, r.URL.Path, r.RemoteAddr)
 	
 	trimmedPath := strings.TrimSpace(r.URL.Path)
 	trimmedPath = strings.Trim(trimmedPath, "/")

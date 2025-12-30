@@ -22,12 +22,12 @@ metadata:
     # 1. Request a certificate in AWS ACM (us-east-1)
     # 2. Paste the ARN below and uncomment these lines:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:996894428841:certificate/bbb83a3f-b3c9-4acc-9e3f-b56c5cea768c
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:996894428841:certificate/177908e5-89fe-4dfc-b549-6ca1254fd650
     alb.ingress.kubernetes.io/ssl-redirect: '443'
 spec:
   ingressClassName: alb
   rules:
-    - host: trilix-atlassian-mcp.aws.providentiaworldwide.com
+    - host: trilix-eso.aws.providentiaworldwide.com
       http:
         paths:
           - path: /
