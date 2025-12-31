@@ -5,20 +5,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/joho/godotenv"
-	"github.com/providentiaww/twistygo"
 	"github.com/providentiaww/trilix-atlassian-mcp/cmd/mcp-server/handlers"
+	"github.com/providentiaww/trilix-atlassian-mcp/internal/config"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
+	"github.com/providentiaww/twistygo"
 )
 
 var rconn *twistygo.AmqpConnection_t
 
 func init() {
-	if err := godotenv.Load("../../.env"); err != nil {
-		godotenv.Load()
-	}
+	config.LoadEnv("../../.env")
 	twistygo.LogStartService("MCPStdio", "1.0.0")
 	rconn = twistygo.AmqpConnect()
 	rconn.AmqpLoadQueues("ConfluenceRequests", "JiraRequests")

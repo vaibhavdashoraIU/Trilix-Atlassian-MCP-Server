@@ -7,15 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
-	"github.com/providentiaww/twistygo"
+	"context"
 	"github.com/providentiaww/trilix-atlassian-mcp/cmd/mcp-server/auth"
 	"github.com/providentiaww/trilix-atlassian-mcp/cmd/mcp-server/handlers"
+	"github.com/providentiaww/trilix-atlassian-mcp/internal/config"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
+	"github.com/providentiaww/twistygo"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"context"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -39,21 +39,7 @@ type AppConfig struct {
 }
 
 func init() {
-	// Load environment variables FIRST from project root or current dir
-	envFile := os.Getenv("ENV_FILE_PATH")
-	if envFile == "" {
-		envFile = "../../.env"
-	}
-
-	if err := godotenv.Load(envFile); err != nil {
-		// Try current directory as fallback
-		if err := godotenv.Load(); err != nil {
-			// Don't log if running in K8s/Docker where env is injected
-			if os.Getenv("KUBERNETES_SERVICE_HOST") == "" {
-				fmt.Printf("Note: .env file not found at %s. Using system environment variables.\n", envFile)
-			}
-		}
-	}
+	config.LoadEnv("../../.env")
 }
 
 func main() {
@@ -121,12 +107,12 @@ func main() {
 	if configData, err := os.ReadFile("config.yaml"); err == nil {
 		yaml.Unmarshal(configData, &appConfig)
 	}
-	
+
 	port := appConfig.Common.App.Port
 	if port == 0 {
 		port = 3000
 	}
-	
+
 	// Prioritize MCP_SERVER_PORT from ConfigMap, fallback to PORT
 	portSource := "config.yaml"
 	if pStr := os.Getenv("MCP_SERVER_PORT"); pStr != "" {
@@ -210,7 +196,7 @@ func main() {
 		// For other paths, serve from root directory
 		http.FileServer(http.Dir(frontendPath)).ServeHTTP(w, r)
 	})
-	
+
 	// Map frontend URLs to new frontend folder
 	mux.HandleFunc("/docs/test-client.html", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(frontendPath, "test-client.html"))
@@ -234,7 +220,7 @@ func main() {
 	// 3. Workspace Management API
 	if clerkAuth != nil {
 		authMiddleware := auth.RequireAuth(clerkAuth)
-		
+
 		workspaceRouteHandler := authMiddleware.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodGet:
@@ -246,11 +232,11 @@ func main() {
 			}
 		})
 
-	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(os.Stderr, "GLOBAL LOG: %s %s\n", r.Method, r.URL.Path)
-		workspaceRouteHandler.ServeHTTP(w, r)
-	})
-	mux.Handle("/api/workspaces/", authMiddleware.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(os.Stderr, "GLOBAL LOG: %s %s\n", r.Method, r.URL.Path)
+			workspaceRouteHandler.ServeHTTP(w, r)
+		})
+		mux.Handle("/api/workspaces/", authMiddleware.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/api/workspaces/" {
 				workspaceRouteHandler.ServeHTTP(w, r)
 				return
@@ -272,7 +258,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "GLOBAL LOG: %s %s\n", r.Method, r.URL.Path)
 			authMiddleware.Handler(http.HandlerFunc(restToolHandler.HandleToolRequest)).ServeHTTP(w, r)
 		})
-		
+
 	} else {
 		// Dev mode
 		mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
@@ -288,7 +274,7 @@ func main() {
 
 	// 3. SSE Server (Replaces port 3000)
 	sseServer := mcp.NewSSEServer(server, handler)
-	
+
 	// Create SSE handler with Auth if configured
 	var sseHandler http.Handler
 	if clerkAuth != nil {
@@ -356,7 +342,7 @@ func main() {
 		fmt.Printf("   - Test Client:  http://localhost:%d/docs/test-client.html\n", port)
 		fmt.Printf("   - Workspaces:   http://localhost:%d/workspaces.html\n", port)
 		fmt.Printf("   - API List:     http://localhost:%d/api/workspaces\n", port)
-		
+
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			panic(fmt.Sprintf("❌ Failed to start server: %v", err))
 		}
@@ -393,7 +379,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 func requestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("🌐 [%s] %s %s from %s (User-Agent: %s)\n", 
+		fmt.Printf("🌐 [%s] %s %s from %s (User-Agent: %s)\n",
 			time.Now().Format("15:04:05"), r.Method, r.URL.String(), r.RemoteAddr, r.UserAgent())
 		next.ServeHTTP(w, r)
 	})
@@ -410,7 +396,6 @@ func recoverMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
 
 // cloneServiceQueue creates a shallow-ish copy of a ServiceQueue_t with its own Message
 // and ResponseQueue to avoid race conditions during concurrent tool calls.
@@ -546,4 +531,3 @@ func createJiraCaller(rpcTimeout time.Duration) func(models.JiraRequest) (*model
 		return &response, nil
 	}
 }
-
