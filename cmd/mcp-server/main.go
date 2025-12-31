@@ -336,8 +336,8 @@ func main() {
 		})
 	})
 
-	// Apply CORS to everything
-	handlerWithCors := corsMiddleware(mux)
+	// Apply CORS, Recovery, and Logging to everything
+	handlerWithCors := requestLogger(corsMiddleware(recoverMiddleware(mux)))
 
 	// Setup Server
 	srv := &http.Server{
@@ -387,7 +387,26 @@ func corsMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
 
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("🌐 [%s] %s %s from %s (User-Agent: %s)\n", 
+			time.Now().Format("15:04:05"), r.Method, r.URL.String(), r.RemoteAddr, r.UserAgent())
+		next.ServeHTTP(w, r)
+	})
+}
+
+func recoverMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				fmt.Printf("❌ HTTP Handler panic recovered: %v\n", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
 		next.ServeHTTP(w, r)
 	})
 }

@@ -95,9 +95,9 @@ AWS_PROFILE=AdministratorAccess-996894428841 ./build-and-push.sh ...
 
 - `kubectl apply -f k8s`
 
-- `kubectl rollout restart deployment confluence-service jira-service mcp-server -n trilix`
-
 - `kubectl rollout restart statefulset rabbitmq postgres -n trilix`
+
+- `kubectl rollout restart deployment confluence-service jira-service mcp-server -n trilix`
 
 - `./deploy.sh status`
 

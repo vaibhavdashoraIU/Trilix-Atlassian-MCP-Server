@@ -136,6 +136,15 @@ func main() {
 		for d := range msgs {
 			go func(delivery amqp.Delivery) {
 				// Process in goroutine
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("❌ Consumer panic recovered: %v\n", r)
+						// Nack the message so it might be retried or dead-lettered
+						// Requeue=false to avoid infinite loop of death if it's deterministic
+						delivery.Nack(false, false)
+					}
+				}()
+
 				responseBytes := service.HandleRequest(delivery)
 
 				// Use twistygo's global channel to publish reply

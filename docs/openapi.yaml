@@ -4,7 +4,7 @@ info:
   description: Use Atlassian tools (Confluence, Jira) via Trilix MCP Server. Optimized for ChatGPT (30 ops).
   version: 1.0.0
 servers:
-  - url: https://candra-unsabred-totally.ngrok-free.dev
+  - url: https://trilix-eso.aws.providentiaworldwide.com
     description: Production Server
 paths:
   /api/workspaces:
