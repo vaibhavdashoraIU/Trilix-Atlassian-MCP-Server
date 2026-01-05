@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
-	"github.com/providentiaww/twistygo"
 	"github.com/providentiaww/trilix-atlassian-mcp/cmd/confluence-service/handlers"
+	"github.com/providentiaww/trilix-atlassian-mcp/internal/config"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
+	"github.com/providentiaww/twistygo"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gopkg.in/yaml.v3"
 )
@@ -28,21 +28,8 @@ type AppConfig struct {
 }
 
 func init() {
-	// Load environment variables FIRST from project root or current dir
-	envFile := os.Getenv("ENV_FILE_PATH")
-	if envFile == "" {
-		envFile = "../../.env"
-	}
-
-	if err := godotenv.Load(envFile); err != nil {
-		// Try current directory as fallback
-		if err := godotenv.Load(); err != nil {
-			// Don't log if running in K8s/Docker where env is injected
-			if os.Getenv("KUBERNETES_SERVICE_HOST") == "" {
-				fmt.Printf("Note: .env file not found at %s. Using system environment variables.\n", envFile)
-			}
-		}
-	}
+	
+	config.LoadEnv("../../.env")
 }
 
 func main() {
@@ -121,12 +108,12 @@ func main() {
 	// Manual multi-threaded service loop to avoid twistygo single-threaded bottleneck
 	msgs, err := svc.Amqp.Channel.Consume(
 		svc.Queue.Name,      // queue
-		"",                 // consumer
+		"",                  // consumer
 		svc.Queue.AutoAck,   // auto-ack
 		svc.Queue.Exclusive, // exclusive
-		false,              // no-local
+		false,               // no-local
 		svc.Queue.NoWait,    // no-wait
-		nil,                // args
+		nil,                 // args
 	)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to start consumer: %v", err))
@@ -136,6 +123,15 @@ func main() {
 		for d := range msgs {
 			go func(delivery amqp.Delivery) {
 				// Process in goroutine
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("❌ Consumer panic recovered: %v\n", r)
+						// Nack the message so it might be retried or dead-lettered
+						// Requeue=false to avoid infinite loop of death if it's deterministic
+						delivery.Nack(false, false)
+					}
+				}()
+
 				responseBytes := service.HandleRequest(delivery)
 
 				// Use twistygo's global channel to publish reply
@@ -187,14 +183,14 @@ func main() {
 	}()
 
 	fmt.Printf("Confluence Service v%s is running (Multi-threaded). To exit press CTRL+C\n", ServiceVersion)
-	
+
 	// Wait for termination signal
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
-	
+
 	fmt.Println("🛑 Shutting down Confluence Service...")
-	
+
 	// Graceful shutdown for health server
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

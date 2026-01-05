@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -28,14 +29,16 @@ func NewRestToolHandler(confluenceHandler *ConfluenceHandler, jiraHandler *JiraH
 
 // HandleToolRequest generic handler for tool execution
 func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	fmt.Printf("Incoming REST request: %s %s from %s\n", r.Method, r.URL.Path, r.RemoteAddr)
+
+	// Allow both POST and GET
+	if r.Method != http.MethodPost && r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	// Extract tool name from URL path
 	// Expected format: /api/tools/{tool_name}
-	fmt.Printf("Incoming REST request: %s %s from %s\n", r.Method, r.URL.Path, r.RemoteAddr)
 	
 	trimmedPath := strings.TrimSpace(r.URL.Path)
 	trimmedPath = strings.Trim(trimmedPath, "/")
@@ -60,23 +63,45 @@ func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Reque
 	var result mcp.ToolResult
 	var err error
 
-	fmt.Printf("REST Tool Call: %s for user %s\n", toolName, userID)
+	fmt.Printf("REST Tool Call (%s): %s for user %s\n", r.Method, toolName, userID)
 
-	// Parse body as arguments
-	var arguments map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&arguments); err != nil {
-		fmt.Printf("Error decoding request body: %v\n", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+	// Parse arguments from BOTH query string and body to be as robust as possible
+	arguments := make(map[string]interface{})
+
+	// 1. Get from query parameters
+	for key, values := range r.URL.Query() {
+		if len(values) > 0 {
+			arguments[key] = values[0]
+		}
 	}
+
+	// 2. Get from body (if present and POST)
+	if r.Method == http.MethodPost && r.Body != nil {
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			fmt.Printf("❌ Error reading request body: %v\n", err)
+		} else {
+			fmt.Printf("📥 Raw Body (%d bytes): %s\n", len(bodyBytes), string(bodyBytes))
+			if len(bodyBytes) > 0 {
+				bodyArgs := make(map[string]interface{})
+				if err := json.Unmarshal(bodyBytes, &bodyArgs); err == nil {
+					for k, v := range bodyArgs {
+						arguments[k] = v
+					}
+				} else {
+					fmt.Printf("❌ JSON Decode Error: %v\n", err)
+				}
+			}
+		}
+	}
+
+	fmt.Printf("Final arguments for %s: %v\n", toolName, arguments)
 
 	// Trusted Service Override: Extract user_id from arguments if authenticated via Service Token
 	if isService, ok := r.Context().Value("IsServiceCall").(bool); ok && isService {
 		if injectedUser, ok := arguments["user_id"].(string); ok && injectedUser != "" {
 			fmt.Printf("🔒 Service Override: Using user_id=%s from input\n", injectedUser)
 			userID = injectedUser
-			// Clean up arguments to avoid passing user_id to the actual tool if not needed
-			// But for now, keeping it is harmless as tools ignore unknown args
 		}
 	}
 

@@ -19,6 +19,12 @@ stringData:
   API_KEY_ENCRYPTION_KEY: "32-character-random-string" # MUST match this name
 ```
 
+### Using AWS Secrets Manager (optional)
+- Put a JSON object in Secrets Manager where the keys are env var names you already use (e.g., `DATABASE_URL`, `API_KEY_ENCRYPTION_KEY`, `RABBITMQ_PASSWORD`, `CLERK_SECRET_KEY`, and Others).
+- Set `AWS_SECRETS_MANAGER_SECRET_ID` on the deployment (plus `AWS_SECRETS_MANAGER_REGION` if it is not in the default AWS region). The services will fetch it before reading `.env` or Kubernetes secrets.
+- Optional flags: `AWS_SECRETS_MANAGER_VERSION_STAGE` (default `AWSCURRENT`) and `AWS_SECRETS_MANAGER_OVERWRITE=true` if you want the secret to override env vars injected elsewhere.
+- Ensure the pod/instance role has `secretsmanager:GetSecretValue` on that secret (IRSA on EKS is recommended).
+
 ### 3. Build & Push (Multi-Arch)
 This script builds for **both** `linux/amd64` and `linux/arm64` to support any EKS node type (Intel or Graviton/Apple Silicon dev machines).
 
@@ -95,11 +101,24 @@ AWS_PROFILE=AdministratorAccess-996894428841 ./build-and-push.sh ...
 
 - `kubectl apply -f k8s`
 
-- `kubectl rollout restart deployment confluence-service jira-service mcp-server -n trilix`
-
 - `kubectl rollout restart statefulset rabbitmq postgres -n trilix`
+
+- `kubectl rollout restart deployment confluence-service jira-service mcp-server -n trilix`
 
 - `./deploy.sh status`
 
 - Changes now should reflect on -> `https://trilix-eso.aws.providentiaworldwide.com/`
+
+To check if secret manager is used
+
+ - `kubectl logs deploy/mcp-server -n trilix | grep "AWS Secrets Manager"`
+ - `kubectl logs deploy/confluence-service -n trilix | grep "AWS Secrets Manager"`
+ - `kubectl logs deploy/jira-service -n trilix | grep "AWS Secrets Manager"`
+
+for values bash
+ - `AWS_PROFILE=<profile> aws secretsmanager get-secret-value \
+    --region us-east-1 \
+    --secret-id prod/trilix/mcp \
+    --query SecretString --output text`
+
 

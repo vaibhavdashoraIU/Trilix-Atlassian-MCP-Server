@@ -1,3 +1,13 @@
+services:
+  - name: MCPServer
+    category: mcp
+    type: rpc
+    queueref: ConfluenceRequests
+    instances:
+      dev: 1
+      tst: 1
+      prd: 1
+
 queues:
   - name: ConfluenceRequests
     category: atlassian
