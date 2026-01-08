@@ -11,14 +11,7 @@ paths:
     get:
       operationId: listWorkspaces
       summary: List available connected workspaces
-      description: Returns a list of workspaces the user has connected. You MUST provide your Clerk User ID (user_...) to retrieve your specific workspaces.
-      parameters:
-        - name: user_id
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Your Clerk User ID for authentication (e.g., user_2pk...)
+      description: Returns a list of workspaces the user has connected.
       responses:
         "200":
           description: List of workspaces
@@ -55,12 +48,6 @@ paths:
           required: true
           schema:
             type: string
-        - name: user_id
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Your Clerk User ID for authentication
       responses:
         "200":
           description: Workspace connection status
@@ -87,8 +74,7 @@ paths:
               properties:
                 workspace_id: { type: string }
                 limit: { type: integer, default: 50 }
-                user_id: { type: string }
-              required: [workspace_id, user_id]
+              required: [workspace_id]
       responses:
         "200":
           description: List of spaces
@@ -110,8 +96,7 @@ paths:
                 workspace_id: { type: string }
                 query: { type: string }
                 limit: { type: integer, default: 10 }
-                user_id: { type: string }
-              required: [workspace_id, query, user_id]
+              required: [workspace_id, query]
       responses:
         "200":
           description: Search results
@@ -132,8 +117,7 @@ paths:
               properties:
                 workspace_id: { type: string }
                 page_id: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, page_id, user_id]
+              required: [workspace_id, page_id]
       responses:
         "200":
           description: Page details
@@ -157,8 +141,7 @@ paths:
                 title: { type: string }
                 body: { type: string }
                 parent_id: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, space_key, title, body, user_id]
+              required: [workspace_id, space_key, title, body]
       responses:
         "200":
           description: Created page details
@@ -181,8 +164,7 @@ paths:
                 page_id: { type: string }
                 title: { type: string }
                 body: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, page_id, body, user_id]
+              required: [workspace_id, page_id, body]
       responses:
         "200":
           description: Updated page details
@@ -204,8 +186,7 @@ paths:
                 workspace_id: { type: string }
                 page_id: { type: string }
                 limit: { type: integer, default: 25 }
-                user_id: { type: string }
-              required: [workspace_id, page_id, user_id]
+              required: [workspace_id, page_id]
       responses:
         "200":
           description: List of child pages
@@ -227,8 +208,7 @@ paths:
                 workspace_id: { type: string }
                 page_id: { type: string }
                 body: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, page_id, body, user_id]
+              required: [workspace_id, page_id, body]
       responses:
         "200":
           description: Comment details
@@ -250,8 +230,7 @@ paths:
                 workspace_id: { type: string }
                 page_id: { type: string }
                 limit: { type: integer, default: 25 }
-                user_id: { type: string }
-              required: [workspace_id, page_id, user_id]
+              required: [workspace_id, page_id]
       responses:
         "200":
           description: List of comments
@@ -273,8 +252,7 @@ paths:
                 workspace_id: { type: string }
                 page_id: { type: string }
                 label: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, page_id, label, user_id]
+              required: [workspace_id, page_id, label]
       responses:
         "200":
           description: Result confirmation
@@ -295,8 +273,7 @@ paths:
               properties:
                 workspace_id: { type: string }
                 query: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, query, user_id]
+              required: [workspace_id, query]
       responses:
         "200":
           description: List of users
@@ -320,8 +297,7 @@ paths:
                 src_page_id: { type: string }
                 dst_space_key: { type: string }
                 dst_parent_id: { type: string }
-                user_id: { type: string }
-              required: [src_workspace, dst_workspace, src_page_id, dst_space_key, user_id]
+              required: [src_workspace, dst_workspace, src_page_id, dst_space_key]
       responses:
         "200":
           description: New page details
@@ -342,8 +318,7 @@ paths:
               type: object
               properties:
                 workspace_id: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, user_id]
+              required: [workspace_id]
       responses:
         "200":
           description: List of projects
@@ -366,8 +341,7 @@ paths:
                 jql: { type: string }
                 limit: { type: integer, default: 50 }
                 fields: { type: array, items: { type: string } }
-                user_id: { type: string }
-              required: [workspace_id, jql, user_id]
+              required: [workspace_id, jql]
       responses:
         "200":
           description: Search results
@@ -389,8 +363,7 @@ paths:
                 workspace_id: { type: string }
                 issue_key: { type: string }
                 expand: { type: array, items: { type: string } }
-                user_id: { type: string }
-              required: [workspace_id, issue_key, user_id]
+              required: [workspace_id, issue_key]
       responses:
         "200":
           description: Issue details
@@ -415,8 +388,7 @@ paths:
                 summary: { type: string }
                 description: { type: string }
                 additional_fields: { type: object }
-                user_id: { type: string }
-              required: [workspace_id, project_key, issue_type, summary, user_id]
+              required: [workspace_id, project_key, issue_type, summary]
       responses:
         "200":
           description: Created issue details
@@ -438,8 +410,7 @@ paths:
                 workspace_id: { type: string }
                 issue_key: { type: string }
                 fields: { type: object }
-                user_id: { type: string }
-              required: [workspace_id, issue_key, fields, user_id]
+              required: [workspace_id, issue_key, fields]
       responses:
         "200":
           description: Update confirmation
@@ -461,8 +432,7 @@ paths:
                 workspace_id: { type: string }
                 issue_key: { type: string }
                 body: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, issue_key, body, user_id]
+              required: [workspace_id, issue_key, body]
       responses:
         "200":
           description: Comment details
@@ -483,8 +453,7 @@ paths:
               properties:
                 workspace_id: { type: string }
                 issue_key: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, issue_key, user_id]
+              required: [workspace_id, issue_key]
       responses:
         "200":
           description: List of transitions
@@ -506,8 +475,7 @@ paths:
                 workspace_id: { type: string }
                 issue_key: { type: string }
                 transition_id: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, issue_key, transition_id, user_id]
+              required: [workspace_id, issue_key, transition_id]
       responses:
         "200":
           description: Transition confirmation
@@ -529,8 +497,7 @@ paths:
                 workspace_id: { type: string }
                 project_key: { type: string }
                 type: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, user_id]
+              required: [workspace_id]
       responses:
         "200":
           description: List of boards
@@ -552,8 +519,7 @@ paths:
                 workspace_id: { type: string }
                 board_id: { type: string }
                 limit: { type: integer, default: 50 }
-                user_id: { type: string }
-              required: [workspace_id, board_id, user_id]
+              required: [workspace_id, board_id]
       responses:
         "200":
           description: List of issues
@@ -575,8 +541,7 @@ paths:
                 workspace_id: { type: string }
                 board_id: { type: string }
                 state: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, board_id, user_id]
+              required: [workspace_id, board_id]
       responses:
         "200":
           description: List of sprints
@@ -598,8 +563,7 @@ paths:
                 workspace_id: { type: string }
                 sprint_id: { type: string }
                 limit: { type: integer, default: 50 }
-                user_id: { type: string }
-              required: [workspace_id, sprint_id, user_id]
+              required: [workspace_id, sprint_id]
       responses:
         "200":
           description: List of issues
@@ -621,8 +585,7 @@ paths:
                 workspace_id: { type: string }
                 board_id: { type: string }
                 name: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, board_id, name, user_id]
+              required: [workspace_id, board_id, name]
       responses:
         "200":
           description: Sprint details
@@ -643,8 +606,7 @@ paths:
               properties:
                 workspace_id: { type: string }
                 query: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, query, user_id]
+              required: [workspace_id, query]
       responses:
         "200":
           description: List of users
@@ -667,8 +629,7 @@ paths:
                 type: { type: string, description: "Link type, e.g., 'Blocks', 'Relates'" }
                 inward_key: { type: string }
                 outward_key: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, type, inward_key, outward_key, user_id]
+              required: [workspace_id, type, inward_key, outward_key]
       responses:
         "200":
           description: Success
@@ -689,8 +650,7 @@ paths:
               properties:
                 workspace_id: { type: string }
                 account_id: { type: string }
-                user_id: { type: string }
-              required: [workspace_id, account_id, user_id]
+              required: [workspace_id, account_id]
       responses:
         "200":
           description: User profile
@@ -712,8 +672,7 @@ components:
         siteUrl: { type: string }
         email: { type: string }
         apiToken: { type: string }
-        user_id: { type: string, description: "Your Clerk User ID (required for impersonation)" }
-      required: [siteUrl, email, apiToken, user_id]
+      required: [siteUrl, email, apiToken]
     WorkspaceResponse:
       type: object
       properties:

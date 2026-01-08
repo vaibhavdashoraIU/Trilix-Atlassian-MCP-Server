@@ -24,6 +24,10 @@ spec:
             name: trilix-config
         - secretRef:
             name: trilix-secrets
+        volumeMounts:
+        - name: oauth-private-key
+          mountPath: /var/run/secrets/oauth
+          readOnly: true
         resources:
           requests:
             memory: "256Mi"
@@ -43,6 +47,13 @@ spec:
             port: 3000
           initialDelaySeconds: 10
           periodSeconds: 5
+      volumes:
+      - name: oauth-private-key
+        secret:
+          secretName: trilix-oauth-key
+          items:
+          - key: oauth-private-key.pem
+            path: oauth-private-key.pem
 ---
 apiVersion: v1
 kind: Service

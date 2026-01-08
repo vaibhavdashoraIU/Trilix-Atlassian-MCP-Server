@@ -27,3 +27,17 @@ data:
   # Paths for containerized environment
   ENV_FILE_PATH: ""  # Empty - use K8s env vars
   FRONTEND_PATH: "/root/frontend"
+
+  # OAuth (Authorization Server)
+  OAUTH_ISSUER: "https://trilix-eso.aws.providentiaworldwide.com"
+  OAUTH_AUDIENCE: "https://trilix-eso.aws.providentiaworldwide.com"
+  OAUTH_DCR_MODE: "protected"
+  OAUTH_ACCESS_TOKEN_TTL: "1m"
+  OAUTH_REFRESH_TOKEN_TTL: "2m"
+  OAUTH_AUTH_CODE_TTL: "10m"
+  OAUTH_DB_MAX_OPEN_CONNS: "2"
+  OAUTH_DB_MAX_IDLE_CONNS: "1"
+  OAUTH_DB_CONN_MAX_LIFETIME: "2m"
+
+  # OAuth private key location (mounted secret)
+  OAUTH_PRIVATE_KEY_PATH: "/var/run/secrets/oauth/oauth-private-key.pem"

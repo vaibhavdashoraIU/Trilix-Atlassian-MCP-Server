@@ -8,27 +8,50 @@ The MCP server provides two main APIs:
 
 ## Authentication
 
-All API endpoints (except `/health`) require Clerk authentication.
+All API endpoints (except `/api/health`) require OAuth 2.1 access tokens issued by this server.
 
-### Getting a JWT Token
+Clerk is used only for user login during `/oauth/authorize`. Do not send Clerk JWTs directly to the MCP API.
 
-Frontend applications should use Clerk's JavaScript SDK:
+### OAuth Discovery
 
-```javascript
-const token = await window.Clerk.session.getToken();
+```
+GET /.well-known/oauth-authorization-server
+```
+
+### Dynamic Client Registration (DCR)
+
+```
+POST /oauth/register
+Authorization: Bearer <dcr_access_token>
+```
+
+### OAuth 2.1 + PKCE Flow
+
+1. Start authorization:
+```
+GET /oauth/authorize?response_type=code&client_id=...&redirect_uri=...&scope=...&code_challenge=...&code_challenge_method=S256&state=...
+```
+
+2. Exchange code:
+```
+POST /oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&client_id=...&code=...&redirect_uri=...&code_verifier=...
 ```
 
 ### Using the Token
 
 **For HTTP requests:**
 ```
-Authorization: Bearer <jwt_token>
+Authorization: Bearer <access_token>
 ```
 
 **For SSE connections:**
 ```
-/mcp/stream?token=<jwt_token>
+/sse?token=<access_token>
 ```
+
 
 ---
 
@@ -36,14 +59,19 @@ Authorization: Bearer <jwt_token>
 
 ### Health Check
 
-**GET /health**
+**GET /api/health**
 
 No authentication required.
 
 **Response:**
 ```json
 {
-  "status": "ok"
+  "status": "UP",
+  "details": {
+    "database": "UP",
+    "rabbitmq": "UP"
+  },
+  "version": "v1.0.0"
 }
 ```
 

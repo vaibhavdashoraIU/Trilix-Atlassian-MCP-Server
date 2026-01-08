@@ -14,7 +14,6 @@ Use these steps to let the services load secrets from AWS Secrets Manager via IR
      "RABBITMQ_PASSWORD": "secret",
      "DATABASE_URL": "postgresql://user:pass@aws-1-eu-west-1.pooler.supabase.com:5432/postgres",
      "CLERK_API_URL": "https://api.clerk.com",
-     "MCP_SERVICE_TOKEN": "trilix-...",
      "CLERK_PUBLISHABLE_KEY": "pk_test_....",
      "CLERK_SECRET_KEY": "sk_test_....",
      "API_KEY_ENCRYPTION_KEY": "abcd...."

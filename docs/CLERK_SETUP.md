@@ -75,20 +75,23 @@ Open http://localhost:3000/docs/test-client.html in your browser.
 - `GET /sse` - Establish SSE connection
 - `POST /message` - Execute MCP commands via SSE
 
-## Authentication Flow
+## Authentication Flow (OAuth 2.1 + Clerk)
+
+Clerk is **only** the Identity Provider (login). The MCP server issues OAuth tokens.
 
 ```
-1. User signs in via Clerk (frontend)
-2. Frontend obtains JWT token
-3. Frontend sends requests with Authorization: Bearer <token>
-4. Server verifies JWT using Clerk's public keys
-5. Server extracts user identity
-6. Server executes request with user context
+1. MCP client starts OAuth 2.1 + PKCE at /oauth/authorize
+2. User signs in via Clerk on the hosted authorize page
+3. Server issues an authorization code
+4. MCP client exchanges code at /oauth/token
+5. Server issues access/refresh tokens (issuer = your OAuth server)
+6. MCP API calls use Authorization: Bearer <access_token>
 ```
 
 ## Security Features
 
-✅ JWT signature verification  
+✅ OAuth 2.1 + PKCE  
+✅ JWT signature verification (server-issued tokens)  
 ✅ API tokens encrypted at rest  
 ✅ Tokens never exposed in responses  
 ✅ User isolation (users can only access their own data)  
@@ -101,11 +104,12 @@ If `CLERK_SECRET_KEY` is not set, the server runs in development mode without au
 ## Production Deployment
 
 1. Use `sk_live_` Clerk secret key
-2. Set up PostgreSQL database
-3. Configure `DATABASE_URL` and `API_KEY_ENCRYPTION_KEY`
-4. Remove `WORKSPACES_FILE` from environment
-5. Deploy behind HTTPS reverse proxy
-6. Update CORS origins to specific domains
+2. Set up PostgreSQL database (required for OAuth)
+3. Set up Redis for auth code/session storage (recommended)
+4. Configure `DATABASE_URL`, `API_KEY_ENCRYPTION_KEY`, and OAuth envs
+5. Remove `WORKSPACES_FILE` from environment
+6. Deploy behind HTTPS reverse proxy
+7. Update CORS origins to specific domains
 
 ## Troubleshooting
 
@@ -114,9 +118,9 @@ If `CLERK_SECRET_KEY` is not set, the server runs in development mode without au
 - Verify the key starts with `sk_test_` or `sk_live_`
 
 ### "401 Unauthorized"
-- Verify JWT token is valid
-- Check that token is not expired
-- Ensure Clerk SDK is properly initialized in frontend
+- Verify OAuth access token is valid
+- Check token issuer/audience/expiry
+- Ensure Clerk login succeeds during /oauth/authorize
 
 ### "Failed to fetch JWKS"
 - Check internet connectivity
@@ -139,29 +143,70 @@ For issues or questions:
 
 ---
 
-## 4. Service Tokens (Bots/AI)
-For automated tools like ChatGPT or other bots that cannot perform interactive login, use the **Service Token** flow.
+## OAuth 2.1 for LLMs (Dynamic Client Registration)
 
-### Configuration
-Add `MCP_SERVICE_TOKEN` to your `.env` or Secrets:
+### 1) Configure OAuth
+Set these variables in `.env`:
 ```env
-MCP_SERVICE_TOKEN=your-secure-static-secret-123
+OAUTH_ISSUER=https://trilix-eso-auth.aws.providentiaworldwide.com
+OAUTH_AUDIENCE=https://trilix-eso-auth.aws.providentiaworldwide.com
+OAUTH_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+OAUTH_DCR_MODE=protected
+OAUTH_DCR_ACCESS_TOKEN=your-dcr-admin-token
+OAUTH_ACCESS_TOKEN_TTL=60m
+OAUTH_REFRESH_TOKEN_TTL=720h
+OAUTH_AUTH_CODE_TTL=10m
+CLERK_PUBLISHABLE_KEY=pk_live_xxx
+REDIS_URL=redis://localhost:6379/0
 ```
 
-### Usage (API / ChatGPT)
-1.  **Authentication**: Use the token as a Bearer token.
-    ```
-    Authorization: Bearer your-secure-static-secret-123
-    ```
+For local development, set:
+```env
+OAUTH_ISSUER=http://localhost:3000
+OAUTH_AUDIENCE=http://localhost:3000
+```
 
-2.  **Impersonation**: Since the token is generic, you can specify which user to act as by including `user_id` in the tool arguments.
-    ```json
-    {
-      "user_id": "user_2px... (Target Clerk User ID)",
-      "workspace_id": "...",
-      ...
-    }
-    ```
+### 2) Register OAuth Client (Dynamic)
+```bash
+curl -X POST https://trilix-eso-auth.aws.providentiaworldwide.com/oauth/register \
+  -H "Authorization: Bearer your-dcr-admin-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "redirect_uris": ["https://your-mcp-client/callback"],
+    "client_name": "Any LLM Client",
+    "token_endpoint_auth_method": "none"
+  }'
+```
 
-> [!NOTE]
-> The `user_id` argument is **only** accepted when authenticated via `MCP_SERVICE_TOKEN`. Regular user tokens cannot impersonate others.
+### 3) Use OAuth 2.1 + PKCE
+Discovery document:
+```
+GET /.well-known/oauth-authorization-server
+```
+
+Authorization endpoint:
+```
+GET /oauth/authorize
+```
+
+Token endpoint:
+```
+POST /oauth/token
+```
+
+
+curl -X POST https://trilix-eso.aws.providentiaworldwide.com/oauth/register \
+  -H "Authorization: Bearer 99713cc1e21c6d7564a3076a504bcb6487879a6db32510cae521e2c1559038df" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "redirect_uris": [
+      "https://chat.openai.com/aip/g-*/oauth/callback",
+      "https://chatgpt.com/aip/g-*/oauth/callback"
+    ],
+    "client_name": "ChatGPT",
+    "token_endpoint_auth_method": "client_secret_post"
+  }'
+
+
+https://trilix-eso.aws.providentiaworldwide.com/oauth/authorize
+https://trilix-eso.aws.providentiaworldwide.com/oauth/token

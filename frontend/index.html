@@ -119,33 +119,6 @@
             margin-bottom: 20px;
         }
 
-        .token-btn {
-            background: var(--atomic-orange);
-            color: #fff;
-            border: none;
-            padding: 15px;
-            font-family: 'Space Mono', monospace;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 1rem;
-            margin-bottom: 10px;
-            transition: transform 0.2s;
-        }
-
-        .token-btn:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 15px rgba(255, 107, 53, 0.4);
-        }
-
-        .feedback {
-            height: 20px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            font-weight: bold;
-        }
-
         #user-button-container {
             display: flex;
             justify-content: center;
@@ -169,29 +142,7 @@
             </div>
 
             <div id="logged-in-view" style="display: none;">
-                <div
-                    style="background: rgba(0, 212, 170, 0.05); border: 1px solid rgba(0, 212, 170, 0.2); padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: left;">
-                    <div
-                        style="font-size: 0.7rem; color: var(--space-teal); text-transform: uppercase; margin-bottom: 5px; font-weight: bold;">
-                        User Identity (Clerk ID)</div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                        <code id="user-id-display"
-                            style="font-size: 0.8rem; color: var(--cream); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Loading...</code>
-                        <button onclick="copyUserId()"
-                            style="background: var(--space-teal); color: var(--midnight); border: none; padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 0.6rem; font-weight: bold; cursor: pointer; white-space: nowrap;">COPY
-                            ID</button>
-                    </div>
-                </div>
-
-                <div id="token-section" style="margin-bottom: 20px;">
-                    <button onclick="copyToken()" class="token-btn">
-                        🔑 Generate Developer JWT
-                    </button>
-                    <p style="font-size: 0.6rem; color: var(--chrome); margin-top: 5px; margin-bottom: 0;">For local
-                        testing tools only. Use Service Token for ChatGPT.</p>
-                </div>
-
-                <div id="token-feedback" class="feedback"></div>
+                <p style="font-size: 0.8rem; margin-bottom: 20px; opacity: 0.7;">Signed in successfully.</p>
             </div>
         </div>
 
@@ -233,91 +184,14 @@
                     window.Clerk.mountUserButton(userButtonDiv, { afterSignOutUrl: '/' });
                     loggedInView.style.display = 'block';
                     loggedOutView.style.display = 'none';
-                    document.getElementById('user-id-display').textContent = user.id;
                 } else {
                     // User is signed out
                     loggedInView.style.display = 'none';
                     loggedOutView.style.display = 'block';
                     userButtonDiv.innerHTML = '';
-                    document.getElementById('token-feedback').textContent = '';
                 }
             });
         });
-
-        async function copyUserId() {
-            const feedback = document.getElementById('token-feedback');
-            const userId = document.getElementById('user-id-display').textContent;
-
-            try {
-                if (!navigator.clipboard) {
-                    fallbackCopyTextToClipboard(userId, feedback, "User ID Copied!");
-                    return;
-                }
-                await navigator.clipboard.writeText(userId);
-                showSuccess(feedback, "User ID Copied!");
-            } catch (err) {
-                console.error('Failed to copy ID: ', err);
-                feedback.textContent = '❌ Failed to copy ID';
-            }
-        }
-
-        async function copyToken() {
-            const feedback = document.getElementById('token-feedback');
-            try {
-                if (!window.Clerk.session) return;
-
-                // Request a long-lived token using the 'chatgpt' template
-                const token = await window.Clerk.session.getToken({ template: 'chatgpt' });
-
-                // Use fallback if navigator.clipboard is unavailable (HTTP)
-                if (!navigator.clipboard) {
-                    fallbackCopyTextToClipboard(token, feedback);
-                    return;
-                }
-
-                await navigator.clipboard.writeText(token);
-                showSuccess(feedback);
-            } catch (err) {
-                console.error('Failed to copy: ', err);
-                feedback.textContent = '❌ Failed. Did you create the "chatgpt" template?';
-                feedback.style.color = '#FF6B35';
-            }
-        }
-
-        function fallbackCopyTextToClipboard(text, feedback) {
-            var textArea = document.createElement("textarea");
-            textArea.value = text;
-
-            // Ensure textArea is not visible but part of DOM
-            textArea.style.top = "0";
-            textArea.style.left = "0";
-            textArea.style.position = "fixed";
-
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-
-            try {
-                var successful = document.execCommand('copy');
-                if (successful) {
-                    showSuccess(feedback);
-                } else {
-                    throw new Error('Fallback copy failed');
-                }
-            } catch (err) {
-                console.error('Fallback: Oops, unable to copy', err);
-                feedback.textContent = '❌ Copy failed (Browser restriction)';
-                feedback.style.color = '#FF6B35';
-            }
-
-            document.body.removeChild(textArea);
-        }
-
-        function showSuccess(feedback, message = '✅ Long-Lived Token Copied!') {
-            feedback.textContent = message;
-            feedback.style.color = '#00D4AA';
-            setTimeout(() => feedback.textContent = '', 3000);
-        }
     </script>
 </body>
 

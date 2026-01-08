@@ -25,8 +25,8 @@ const (
 
 // ClerkAuth handles Clerk authentication
 type ClerkAuth struct {
-	secretKey string
-	jwksURL   string
+	secretKey  string
+	jwksURL    string
 	publicKeys map[string]*rsa.PublicKey
 	keysMutex  sync.RWMutex
 }
@@ -220,31 +220,6 @@ func ExtractUserFromContext(ctx context.Context) (*UserContext, bool) {
 	return user, ok
 }
 
-// ExtractUserID extracts user ID from request metadata (legacy support)
-func ExtractUserID(metadata map[string]interface{}) string {
-	if metadata == nil {
-		return ""
-	}
-
-	// Try clerkToken first
-	if clerkToken, ok := metadata["clerkToken"].(string); ok && clerkToken != "" {
-		auth := NewClerkAuth()
-		if auth != nil {
-			ctx, err := auth.VerifyToken(clerkToken)
-			if err == nil {
-				return ctx.UserID
-			}
-		}
-	}
-
-	// Fall back to userId
-	if userID, ok := metadata["userId"].(string); ok {
-		return userID
-	}
-
-	return ""
-}
-
 // ExtractTokenFromHeader extracts JWT token from Authorization header
 func ExtractTokenFromHeader(r *http.Request) string {
 	authHeader := r.Header.Get("Authorization")
@@ -265,4 +240,3 @@ func ExtractTokenFromHeader(r *http.Request) string {
 func ExtractTokenFromQuery(r *http.Request) string {
 	return r.URL.Query().Get("token")
 }
-

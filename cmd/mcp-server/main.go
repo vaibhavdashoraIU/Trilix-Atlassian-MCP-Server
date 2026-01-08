@@ -10,8 +10,10 @@ import (
 	"context"
 	"github.com/providentiaww/trilix-atlassian-mcp/cmd/mcp-server/auth"
 	"github.com/providentiaww/trilix-atlassian-mcp/cmd/mcp-server/handlers"
+	oauthserver "github.com/providentiaww/trilix-atlassian-mcp/cmd/mcp-server/oauth"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/config"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/models"
+	"github.com/providentiaww/trilix-atlassian-mcp/internal/oauth"
 	"github.com/providentiaww/trilix-atlassian-mcp/internal/storage"
 	"github.com/providentiaww/trilix-atlassian-mcp/pkg/mcp"
 	"github.com/providentiaww/twistygo"
@@ -100,6 +102,28 @@ func main() {
 	if clerkAuth == nil {
 		fmt.Println("Warning: Clerk authentication not configured (CLERK_SECRET_KEY not set)")
 		fmt.Println("Running in development mode without authentication")
+	}
+
+	// Initialize OAuth server (Authorization Server)
+	var oauthServer *oauthserver.Server
+	var oauthVerifier *auth.OAuthVerifier
+	var oauthStore *oauth.Store
+	oauthCfg, oauthCfgErr := oauth.LoadConfigFromEnv()
+	if oauthCfgErr != nil {
+		fmt.Printf("Warning: OAuth not configured (%v)\n", oauthCfgErr)
+	} else {
+		keys, err := oauth.LoadKeyManagerFromEnv()
+		if err != nil {
+			fmt.Printf("Warning: OAuth keys not configured (%v)\n", err)
+		} else {
+			oauthStore, err = oauth.NewStoreFromEnv()
+			if err != nil {
+				fmt.Printf("Warning: OAuth store init failed (%v)\n", err)
+			} else {
+				oauthServer = oauthserver.NewServer(oauthCfg, keys, oauthStore, clerkAuth)
+				oauthVerifier = auth.NewOAuthVerifier(oauthCfg, keys, oauthStore)
+			}
+		}
 	}
 
 	// Load custom config
@@ -218,8 +242,8 @@ func main() {
 	})
 
 	// 3. Workspace Management API
-	if clerkAuth != nil {
-		authMiddleware := auth.RequireAuth(clerkAuth)
+	if clerkAuth != nil || oauthVerifier != nil {
+		authMiddleware := auth.RequireAuth(clerkAuth, oauthVerifier)
 
 		workspaceRouteHandler := authMiddleware.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
@@ -277,8 +301,8 @@ func main() {
 
 	// Create SSE handler with Auth if configured
 	var sseHandler http.Handler
-	if clerkAuth != nil {
-		authMiddleware := auth.RequireAuth(clerkAuth)
+	if clerkAuth != nil || oauthVerifier != nil {
+		authMiddleware := auth.RequireAuth(clerkAuth, oauthVerifier)
 		// SSE endpoint needs auth
 		sseHandler = authMiddleware.HandlerFunc(sseServer.HandleSSE)
 	} else {
@@ -287,6 +311,16 @@ func main() {
 
 	mux.Handle("/sse", sseHandler)
 	mux.Handle("/message", http.HandlerFunc(sseServer.HandleMessage)) // Message posting usually uses same auth header
+
+	// OAuth endpoints
+	if oauthServer != nil {
+		mux.HandleFunc("/oauth/authorize", oauthServer.HandleAuthorize)
+		mux.HandleFunc("/oauth/authorize/complete", oauthServer.HandleAuthorizeComplete)
+		mux.HandleFunc("/oauth/token", oauthServer.HandleToken)
+		mux.HandleFunc("/oauth/register", oauthServer.HandleRegister)
+		mux.HandleFunc("/oauth/jwks", oauthServer.HandleJWKS)
+		mux.HandleFunc("/.well-known/oauth-authorization-server", oauthServer.HandleWellKnown)
+	}
 
 	// Deep Health Check Endpoint (for Kubernetes)
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -311,6 +345,16 @@ func main() {
 			status = "DOWN"
 			details["rabbitmq"] = "DOWN"
 			code = http.StatusServiceUnavailable
+		}
+
+		if oauthStore != nil {
+			if err := oauthStore.Ping(); err != nil {
+				status = "DOWN"
+				details["oauth_database"] = fmt.Sprintf("DOWN: %v", err)
+				code = http.StatusServiceUnavailable
+			} else {
+				details["oauth_database"] = "UP"
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -358,6 +402,10 @@ func main() {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		fmt.Printf("❌ Server forced to shutdown: %v\n", err)
+	}
+
+	if oauthStore != nil {
+		_ = oauthStore.Close()
 	}
 
 	fmt.Println("👋 Server exited gracefully")

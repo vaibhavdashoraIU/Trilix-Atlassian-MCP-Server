@@ -704,13 +704,8 @@
                         authStatus.innerHTML = ''; // Clear "Checking Auth..."
                         window.Clerk.mountUserButton(authStatus, { afterSignOutUrl: '/' });
 
-                        // Get the long-lived token if available
-                        try {
-                            currentToken = await window.Clerk.session.getToken({ template: 'chatgpt' });
-                        } catch (e) {
-                            console.log("Custom template not found, using default");
-                            currentToken = await window.Clerk.session.getToken();
-                        }
+                        // Use Clerk session token for UI requests
+                        currentToken = await window.Clerk.session.getToken();
 
                         // Load default form
                         showForm('workspaces');

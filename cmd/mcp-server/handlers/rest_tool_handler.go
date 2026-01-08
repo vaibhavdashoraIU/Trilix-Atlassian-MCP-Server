@@ -39,11 +39,11 @@ func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Reque
 
 	// Extract tool name from URL path
 	// Expected format: /api/tools/{tool_name}
-	
+
 	trimmedPath := strings.TrimSpace(r.URL.Path)
 	trimmedPath = strings.Trim(trimmedPath, "/")
 	parts := strings.Split(trimmedPath, "/")
-	
+
 	toolName := ""
 	if len(parts) >= 3 {
 		toolName = parts[2]
@@ -97,13 +97,8 @@ func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Reque
 
 	fmt.Printf("Final arguments for %s: %v\n", toolName, arguments)
 
-	// Trusted Service Override: Extract user_id from arguments if authenticated via Service Token
-	if isService, ok := r.Context().Value("IsServiceCall").(bool); ok && isService {
-		if injectedUser, ok := arguments["user_id"].(string); ok && injectedUser != "" {
-			fmt.Printf("🔒 Service Override: Using user_id=%s from input\n", injectedUser)
-			userID = injectedUser
-		}
-	}
+	// Never accept user_id from client input. User identity comes from OAuth.
+	delete(arguments, "user_id")
 
 	call := mcp.ToolCall{
 		Name:      toolName,
@@ -138,11 +133,11 @@ func (h *RestToolHandler) HandleToolRequest(w http.ResponseWriter, r *http.Reque
 
 	// Return result
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// The tool handlers return JSON strings wrapped in Text content
 	// We want to return actual JSON, so we try to parse it first
 	// If parsing fails (plain text), we wrap it in a JSON object
-	
+
 	var jsonContent interface{}
 	if len(result.Content) > 0 {
 		textContent := result.Content[0].Text
